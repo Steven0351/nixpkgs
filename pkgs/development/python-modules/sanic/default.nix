@@ -1,120 +1,123 @@
-{ lib
-, stdenv
-, aiofiles
-, beautifulsoup4
-, buildPythonPackage
-, doCheck ? true
-, fetchFromGitHub
-, gunicorn
-, httptools
-, multidict
-, pytest-asyncio
-, pytest-benchmark
-, pytest-sugar
-, pytestCheckHook
-, pythonOlder
-, sanic-routing
-, sanic-testing
-, ujson
-, uvicorn
-, uvloop
-, websockets
+{
+  lib,
+  stdenv,
+  aiofiles,
+  aioquic,
+  beautifulsoup4,
+  buildPythonPackage,
+  cacert,
+  fetchFromGitHub,
+  gunicorn,
+  html5tagger,
+  httptools,
+  multidict,
+  pytest-asyncio,
+  pytestCheckHook,
+  pythonOlder,
+  sanic-routing,
+  sanic-testing,
+  setuptools,
+  tracerite,
+  typing-extensions,
+  ujson,
+  uvicorn,
+  uvloop,
+  websockets,
 }:
 
 buildPythonPackage rec {
   pname = "sanic";
-  version = "21.9.3";
-  format = "setuptools";
+  version = "24.12.0";
+  pyproject = true;
 
   disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "sanic-org";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "0m18jdw1mvf7jhpnrxhm96p24pxvv0h9m71a8c7sqqkwnnpa3p5i";
+    repo = "sanic";
+    tag = "v${version}";
+    hash = "sha256-17Nr0iNeZC1sHm0JETIufdMVqrhORts1WxCh8cukCKg=";
   };
 
-  postPatch = ''
-    # Loosen dependency requirements.
-    substituteInPlace setup.py \
-      --replace '"pytest==6.2.5"' '"pytest"' \
-      --replace '"gunicorn==20.0.4"' '"gunicorn"' \
-      --replace '"pytest-sanic",' "" \
-    # Patch a request headers test to allow brotli encoding
-    # (we build httpx with brotli support, upstream doesn't).
-    substituteInPlace tests/test_headers.py \
-      --replace "deflate\r\n" "deflate, br\r\n"
-  '';
+  build-system = [ setuptools ];
 
-  propagatedBuildInputs = [
+  dependencies = [
     aiofiles
     httptools
+    html5tagger
     multidict
     sanic-routing
+    tracerite
+    typing-extensions
     ujson
     uvloop
     websockets
   ];
 
-  checkInputs = [
+  optional-dependencies = {
+    ext = [
+      # TODO: sanic-ext
+    ];
+    http3 = [ aioquic ];
+  };
+
+  nativeCheckInputs = [
     beautifulsoup4
     gunicorn
     pytest-asyncio
-    pytest-benchmark
-    pytest-sugar
     pytestCheckHook
     sanic-testing
     uvicorn
-  ];
+  ] ++ optional-dependencies.http3;
 
-  inherit doCheck;
+  doCheck = !stdenv.hostPlatform.isDarwin;
 
   preCheck = ''
     # Some tests depends on sanic on PATH
     PATH="$out/bin:$PATH"
+    PYTHONPATH=$PWD:$PYTHONPATH
+
+    # httpx since 0.28.0+ depends on SSL_CERT_FILE
+    SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt
+
+    # needed for relative paths for some packages
+    cd tests
   '';
 
   disabledTests = [
-    # Tests are flaky
-    "test_keep_alive_client_timeout"
-    "test_check_timeouts_request_timeout"
-    "test_check_timeouts_response_timeout"
-    "test_reloader_live"
-    "test_zero_downtime"
-    # Not working from 21.9.1
-    "test_create_server_main"
-    "test_create_server_main_convenience"
-    "test_debug"
-    "test_auto_reload"
-    "test_no_exceptions_when_cancel_pending_request"
-    "test_ipv6_address_is_not_wrapped"
-    # Failure of the redirect tests seems to be related to httpx>0.20.0
-    "test_redirect"
-    "test_chained_redirect"
-    "test_unix_connection"
-    # These appear to be very sensitive to output of commands
-    "test_access_logs"
-    "test_auto_reload"
-    "test_host_port"
-    "test_no_exceptions_when_cancel_pending_request"
-    "test_num_workers"
-    "test_server_run"
-    "test_version"
+    # EOFError: Ran out of input
+    "test_server_run_with_repl"
+    # InvalidStatusCode: server rejected WebSocket connection: HTTP 400
+    "test_websocket_route_with_subprotocols"
+    # nic.exceptions.SanicException: Cannot setup Sanic Simple Server without a path to a directory
+    "test_load_app_simple"
+    # ModuleNotFoundError: No module named '/build/source/tests/tests/static'
+    "test_input_is_dir"
+    # Racy, e.g. Address already in use
+    "test_logger_vhosts"
   ];
 
-  # avoid usage of nixpkgs-review in darwin since tests will compete usage
+  disabledTestPaths = [
+    # We are not interested in benchmarks
+    "benchmark/"
+    # We are also not interested in typing
+    "typing/test_typing.py"
+    # occasionally hangs
+    "test_multiprocessing.py"
+  ];
+
+  # Avoid usage of nixpkgs-review in darwin since tests will compete usage
   # for the same local port
   __darwinAllowLocalNetworking = true;
 
-  pythonImportsCheck = [
-    "sanic"
-  ];
+  pythonImportsCheck = [ "sanic" ];
 
   meta = with lib; {
     description = "Web server and web framework";
     homepage = "https://github.com/sanic-org/sanic/";
+    changelog = "https://github.com/sanic-org/sanic/releases/tag/${src.tag}";
     license = licenses.mit;
-    maintainers = with maintainers; [ costrouc AluisioASG ];
+    maintainers = [ ];
+    mainProgram = "sanic";
   };
 }

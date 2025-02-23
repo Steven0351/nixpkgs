@@ -1,30 +1,54 @@
 { lib, fetchFromGitHub }:
 rec {
-  version = "8.2.3848";
+  version = "9.1.1046";
+
+  outputs = [
+    "out"
+    "xxd"
+  ];
 
   src = fetchFromGitHub {
     owner = "vim";
     repo = "vim";
     rev = "v${version}";
-    sha256 = "sha256-U6xrEZbieRBU0FDdTloYdZzuNpJ9+Q7FZgfI+0SPEAQ=";
+    hash = "sha256-bH3p78fWUNQRhluUvqQ5uJ+PxNhz7T7wA/4zxUDH130=";
   };
 
   enableParallelBuilding = true;
+  enableParallelInstalling = false;
 
   hardeningDisable = [ "fortify" ];
 
-  postPatch =
-    # Use man from $PATH; escape sequences are still problematic.
-    ''
-      substituteInPlace runtime/ftplugin/man.vim \
-        --replace "/usr/bin/man " "man "
-    '';
+  # Use man from $PATH; escape sequences are still problematic.
+  postPatch = ''
+    substituteInPlace runtime/ftplugin/man.vim \
+      --replace "/usr/bin/man " "man "
+  '';
+
+  # man page moving is done in postFixup instead of postInstall otherwise fixupPhase moves it right back where it was
+  postFixup = ''
+    moveToOutput bin/xxd "$xxd"
+    moveToOutput share/man/man1/xxd.1.gz "$xxd"
+    for manFile in $out/share/man/*/man1/xxd.1*; do
+      # moveToOutput does not take full paths or wildcards...
+      moveToOutput "share/man/$(basename "$(dirname "$(dirname "$manFile")")")/man1/xxd.1.gz" "$xxd"
+    done
+  '';
 
   meta = with lib; {
-    description = "The most popular clone of the VI editor";
-    homepage    = "http://www.vim.org";
-    license     = licenses.vim;
-    maintainers = with maintainers; [ lovek323 equirosa ];
-    platforms   = platforms.unix;
+    description = "Most popular clone of the VI editor";
+    homepage = "https://www.vim.org";
+    license = licenses.vim;
+    maintainers = with maintainers; [
+      das_j
+      equirosa
+      philiptaron
+    ];
+    platforms = platforms.unix;
+    mainProgram = "vim";
+    outputsToInstall = [
+      "out"
+      "xxd"
+    ];
   };
 }

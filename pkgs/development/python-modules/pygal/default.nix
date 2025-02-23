@@ -1,67 +1,67 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, fetchpatch
-, isPyPy
-, flask
-, pyquery
-, pytest
-, pytest-runner
-, cairosvg
-, tinycss
-, cssselect
-, lxml
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+
+  # build-system
+  setuptools,
+
+  # dependencies
+  importlib-metadata,
+
+  # optional-dependencies
+  lxml,
+  cairosvg,
+
+  # tests
+  pyquery,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "pygal";
-  version = "2.4.0";
+  version = "3.0.5";
+  pyproject = true;
 
-  doCheck = !isPyPy; # one check fails with pypy
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "9204f05380b02a8a32f9bf99d310b51aa2a932cba5b369f7a4dc3705f0a4ce83";
+    hash = "sha256-wKDzTlvBwBl1wr+4NCrVIeKTrULlJWmd0AxNelLBS3E=";
   };
-  patches = [
-    # Fixes compatibility with latest pytest. October 12, 2020.
-    # Should be included in the next release after 2.4.0
-    (fetchpatch {
-      url = "https://github.com/Kozea/pygal/commit/19e5399be18a054b3b293f4a8a2777d2df4f9c18.patch";
-      sha256 = "1j0hpcvd2mhi449wmlr0ml9gw4cakqk3av1j79bi2qy86dyrss2l";
-    })
-  ];
 
-  buildInputs = [
-    flask
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace-fail pytest-runner ""
+  '';
+
+  build-system = [ setuptools ];
+
+  dependencies = [ importlib-metadata ];
+
+  optional-dependencies = {
+    lxml = [ lxml ];
+    png = [ cairosvg ];
+  };
+
+  nativeCheckInputs = [
     pyquery
-
-    # Should be a check input, but upstream lists it under "setup_requires".
-    # https://github.com/Kozea/pygal/issues/430
-    pytest-runner
-  ];
-
-  checkInputs = [
-    pytest
-  ];
+    pytestCheckHook
+  ] ++ lib.flatten (lib.attrValues optional-dependencies);
 
   preCheck = ''
     # necessary on darwin to pass the testsuite
     export LANG=en_US.UTF-8
   '';
 
-  postPatch = ''
-    substituteInPlace setup.cfg --replace "[pytest]" "[tool:pytest]"
-  '';
-
-  propagatedBuildInputs = [ cairosvg tinycss cssselect ]
-    ++ lib.optionals (!isPyPy) [ lxml ];
-
   meta = with lib; {
-    description = "Sexy and simple python charting";
+    description = "Module for dynamic SVG charting";
     homepage = "http://www.pygal.org";
+    changelog = "https://github.com/Kozea/pygal/blob/${version}/docs/changelog.rst";
+    downloadPage = "https://github.com/Kozea/pygal";
     license = licenses.lgpl3Plus;
-    maintainers = with maintainers; [ sjourdois ];
+    maintainers = [ ];
+    mainProgram = "pygal_gen.py";
   };
-
 }

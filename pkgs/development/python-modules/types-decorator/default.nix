@@ -1,24 +1,26 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "types-decorator";
-  version = "5.1.2";
-  format = "setuptools";
+  version = "5.1.8.20240310";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "b3dd9027af1131b4e55ccd09248b7accc7a02d567139e2009ed20db13cf90600";
+    hash = "sha256-UuMWsDeDiGqKKr3CKPcHFoC6ZYlFRc0ghevjz4hoSg4=";
   };
+
+  nativeBuildInputs = [ setuptools ];
 
   # Modules doesn't have tests
   doCheck = false;
 
-  pythonImportsCheck = [
-    "decorator-stubs"
-  ];
+  pythonImportsCheck = [ "decorator-stubs" ];
 
   meta = with lib; {
     description = "Typing stubs for decorator";

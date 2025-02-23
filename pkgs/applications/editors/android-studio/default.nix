@@ -1,24 +1,24 @@
-{ callPackage, makeFontsConf, gnome2, buildFHSUserEnv }:
+{ callPackage, makeFontsConf, buildFHSEnv, tiling_wm ? false }:
 
 let
   mkStudio = opts: callPackage (import ./common.nix opts) {
     fontsConf = makeFontsConf {
       fontDirectories = [];
     };
-    inherit (gnome2) GConf gnome_vfs;
-    inherit buildFHSUserEnv;
+    inherit buildFHSEnv;
+    inherit tiling_wm;
   };
   stableVersion = {
-    version = "2020.3.1.26"; # "Android Studio Arctic Fox (2020.3.1)"
-    sha256Hash = "NE2FgjXtXTCVrCWRakqPhzAGn3blpf0OugJSKviPVBs=";
+    version = "2024.2.2.14"; # "Android Studio Ladybug Feature Drop | 2024.2.2 Patch 1"
+    sha256Hash = "sha256-c9t8GQw2azYIf4vyiKSolnbGTUeq25rYxSgBDei7I0Q=";
   };
   betaVersion = {
-    version = "2021.1.1.18"; # "Android Studio Bumblebee (2021.1.1) Beta 5"
-    sha256Hash = "gWG8h3wTQDH84vSKlfTm3soUqLkwFYfSymJuAAFPDuQ=";
+    version = "2024.3.1.11"; # "Android Studio Meerkat | 2024.3.1 RC 1"
+    sha256Hash = "sha256-6nViPI61A9XJbKxsrbLrn2tiPKaqi6Mw9RIi49Sl+7M=";
   };
-  latestVersion = { # canary & dev
-    version = "2021.2.1.5"; # "Android Studio Chipmunk (2021.2.1) Canary 5"
-    sha256Hash = "PS45nu5g9qXNeolYnFEs//Z6p8eIZoD6kUo/0yfHQ6A=";
+  latestVersion = {
+    version = "2024.3.2.5"; # "Android Studio Meerkat Feature Drop | 2024.3.2 Canary 5"
+    sha256Hash = "sha256-5HHUDZHIJkzx7iu89Ds/pjnsB2CBqz7VSUgb9VuqtKo=";
   };
 in {
   # Attributes are named by their corresponding release channels

@@ -1,32 +1,33 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitLab
-, future
-, ifaddr
-, pytestCheckHook
-, pythonOlder
+{
+  lib,
+  async-timeout,
+  buildPythonPackage,
+  fetchFromGitLab,
+  flit-core,
+  ifaddr,
+  pytestCheckHook,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
   pname = "yeelight";
-  version = "0.7.8";
-  disabled = pythonOlder "3.4";
+  version = "0.7.16";
+  pyproject = true;
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitLab {
     owner = "stavros";
     repo = "python-yeelight";
-    rev = "v${version}";
-    sha256 = "sha256-fKtG0D256bK1hIcQiLdzCM+IdD/mmcFpcoE3DEFt7r0=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-WLEXTDVcSpGCmfEI31cQXGf9+4EIUCkcaeaj25f4ERU=";
   };
 
-  propagatedBuildInputs = [
-    future
-    ifaddr
-  ];
+  build-system = [ flit-core ];
 
-  checkInputs = [
-    pytestCheckHook
-  ];
+  dependencies = [ ifaddr ] ++ lib.optionals (pythonOlder "3.11") [ async-timeout ];
+
+  nativeCheckInputs = [ pytestCheckHook ];
 
   pytestFlagsArray = [ "yeelight/tests.py" ];
 
@@ -35,6 +36,7 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python library for controlling YeeLight RGB bulbs";
     homepage = "https://gitlab.com/stavros/python-yeelight/";
+    changelog = "https://gitlab.com/stavros/python-yeelight/-/blob/v${version}/CHANGELOG.md";
     license = licenses.bsd2;
     maintainers = with maintainers; [ nyanloutre ];
   };

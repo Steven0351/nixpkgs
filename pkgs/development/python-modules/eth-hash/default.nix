@@ -1,55 +1,63 @@
-{ lib, fetchPypi, buildPythonPackage, pythonOlder, pytest, pysha3, pycrypto
-, pycryptodome
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  isPyPy,
+  # nativeCheckInputs
+  pytest,
+  pytest-xdist,
+  # optional dependencies
+  pycryptodome,
+  safe-pysha3,
 }:
 
 buildPythonPackage rec {
   pname = "eth-hash";
-  version = "0.3.2";
+  version = "0.7.1";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "3f40cecd5ead88184aa9550afc19d057f103728108c5102f592f8415949b5a76";
+  src = fetchFromGitHub {
+    owner = "ethereum";
+    repo = "eth-hash";
+    tag = "v${version}";
+    hash = "sha256-91jWZDqrd7ZZlM0D/3sDokJ26NiAQ3gdeBebTV1Lq8s=";
   };
 
-  checkInputs = [ pytest ];
+  build-system = [ setuptools ];
 
-  propagatedBuildInputs = [
-    pysha3
-    pycrypto
-    pycryptodome
-  ];
+  nativeCheckInputs =
+    [
+      pytest
+      pytest-xdist
+    ]
+    ++ optional-dependencies.pycryptodome
+    # safe-pysha3 is not available on pypy
+    ++ lib.optional (!isPyPy) optional-dependencies.pysha3;
 
-  pipInstallFlags = [
-    # Circular dependency on eth-utils
-    "--no-dependencies"
-  ];
+  # Backends need to be tested separatly and can not use hook
+  checkPhase =
+    ''
+      runHook preCheck
+      pytest tests/core tests/backends/pycryptodome
+    ''
+    + lib.optionalString (!isPyPy) ''
+      pytest tests/backends/pysha3
+    ''
+    + ''
+      runHook postCheck
+    '';
 
-  # setuptools-markdown uses pypandoc which is broken at the moment
-  preConfigure = ''
-    substituteInPlace setup.py --replace \'setuptools-markdown\' ""
-  '';
-
-  # Run tests separately because we don't want to run tests on tests/backends/
-  # but only on its selected subdirectories. Also, the directories under
-  # tests/backends/ must be run separately because they have identically named
-  # test files so pytest would raise errors because of that.
-  #
-  # Also, tests in tests/core/test_import.py are broken so just ignore them:
-  # https://github.com/ethereum/eth-hash/issues/25
-  # There is a pull request to fix the tests:
-  # https://github.com/ethereum/eth-hash/pull/26
-  checkPhase = ''
-    pytest tests/backends/pycryptodome/
-    pytest tests/backends/pysha3/
-    # pytest tests/core/
-  '';
-
-  disabled = pythonOlder "3.5";
+  optional-dependencies = {
+    pycryptodome = [ pycryptodome ];
+    pysha3 = [ safe-pysha3 ];
+  };
 
   meta = {
-    description = "The Ethereum hashing function keccak256";
+    description = "Ethereum hashing function keccak256";
     homepage = "https://github.com/ethereum/eth-hash";
+    changelog = "https://github.com/ethereum/eth-hash/blob/v${version}/docs/release_notes.rst";
     license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ jluttine ];
+    maintainers = with lib.maintainers; [ hellwolf ];
   };
 }

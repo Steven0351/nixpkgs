@@ -1,51 +1,69 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, pytest
-, nose
-, isPy27
-, numpy
-, scipy
-, sparse
-, pytorch
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  numpy,
+  pytestCheckHook,
+  pythonOlder,
+  scipy,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "tensorly";
-  version = "0.4.5";
-  disabled = isPy27;
+  version = "0.9.0";
+  pyproject = true;
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = pname;
     repo = pname;
-    rev = version;
-    sha256 = "1ml91yaxwx4msisxbm92yf22qfrscvk58f3z2r1jhi96pw2k4i7x";
+    tag = version;
+    hash = "sha256-A6Zlp8fa7XFgf4qpg7SEtNLlYSNtDGLuRUEfzD+crQc=";
   };
 
-  propagatedBuildInputs = [ numpy scipy sparse ]
-    ++ lib.optionals (!doCheck) [ nose ]; # upstream added nose to install_requires
+  build-system = [ setuptools ];
 
-  checkInputs = [ pytest nose pytorch ];
-  # also has a cupy backend, but the tests are currently broken
-  # (e.g. attempts to access cupy.qr instead of cupy.linalg.qr)
-  # and this backend also adds a non-optional CUDA dependence,
-  # as well as tensorflow and mxnet backends, but the tests don't
-  # seem to exercise these backend by default
+  dependencies = [
+    numpy
+    scipy
+  ];
 
-  # uses >= 140GB of ram to test
-  doCheck = false;
-  checkPhase = ''
-    runHook preCheck
-    nosetests -e "test_cupy"
-    runHook postCheck
-  '';
+  nativeCheckInputs = [ pytestCheckHook ];
 
-  pythonImportsCheck = [ "tensorly" ];
+  pythonImportsCheck = [
+    "tensorly"
+    "tensorly.base"
+    "tensorly.cp_tensor"
+    "tensorly.tucker_tensor"
+    "tensorly.tt_tensor"
+    "tensorly.tt_matrix"
+    "tensorly.parafac2_tensor"
+    "tensorly.tenalg"
+    "tensorly.decomposition"
+    "tensorly.regression"
+    "tensorly.solvers"
+    "tensorly.metrics"
+    "tensorly.random"
+    "tensorly.datasets"
+    "tensorly.plugins"
+    "tensorly.contrib"
+  ];
+
+  pytestFlagsArray = [ "tensorly" ];
+
+  disabledTests = [
+    # this can fail on hydra and other peoples machines, check with others before re-enabling
+    # AssertionError: Partial_SVD took too long, maybe full_matrices set wrongly
+    "test_svd_time"
+  ];
 
   meta = with lib; {
     description = "Tensor learning in Python";
     homepage = "https://tensorly.org/";
+    changelog = "https://github.com/tensorly/tensorly/releases/tag/${version}";
     license = licenses.bsd3;
-    maintainers = [ maintainers.bcdarwin ];
+    maintainers = with maintainers; [ bcdarwin ];
   };
 }

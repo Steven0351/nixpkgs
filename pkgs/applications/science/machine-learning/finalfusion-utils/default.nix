@@ -1,38 +1,42 @@
-{ lib
-, stdenv
-, rustPlatform
-, fetchFromGitHub
-, installShellFiles
-, blas
-, gfortran
-, lapack
-, openssl
-, Security
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  fetchFromGitHub,
+  installShellFiles,
+  blas,
+  gfortran,
+  lapack,
+  openssl,
+  Security,
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "finalfusion-utils";
-  version = "0.13.2";
+  version = "0.14.1";
 
   src = fetchFromGitHub {
     owner = "finalfusion";
     repo = pname;
     rev = version;
-    sha256 = "sha256-Wv3K2G542e1bKuJB+dZi0SW4dbopvs7SBohv+zgi5MI=";
+    sha256 = "sha256-suzivynlgk4VvDOC2dQR40n5IJHoJ736+ObdrM9dIqE=";
   };
 
-  cargoSha256 = "sha256-oI7bq/yEXP7aMLWGKAecyq1lqq7ZbHtwxX2ldZMFY8I=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-X8ENEtjH1RHU2+VwtkHsyVYK37O8doMlLk94O2BGqy0=";
 
   nativeBuildInputs = [ installShellFiles ];
 
-  buildInputs = [
-    blas
-    gfortran.cc.lib
-    lapack
-    openssl
-  ] ++ lib.optionals stdenv.isDarwin [
-    Security
-  ];
+  buildInputs =
+    [
+      blas
+      gfortran.cc.lib
+      lapack
+      openssl
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      Security
+    ];
 
   # Enables build against a generic BLAS.
   buildFeatures = [ "netlib" ];
@@ -49,6 +53,7 @@ rustPlatform.buildRustPackage rec {
     description = "Utility for converting, quantizing, and querying word embeddings";
     homepage = "https://github.com/finalfusion/finalfusion-utils/";
     license = licenses.asl20;
-    maintainers = with maintainers; [ ];
+    maintainers = [ ];
+    mainProgram = "finalfusion";
   };
 }

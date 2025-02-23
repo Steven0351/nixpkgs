@@ -1,33 +1,73 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, cloudpickle
-, dask
-, numpy, toolz # dask[array]
-, multipledispatch
-, setuptools-scm
-, scipy
-, scikit-learn
-, pytestCheckHook
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools-scm,
+
+  # dependencies
+  cloudpickle,
+  distributed,
+  multipledispatch,
+  scikit-learn,
+  scipy,
+  sparse,
+  dask,
+
+  # tests
+  pytest-xdist,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
-  version = "0.2.0";
   pname = "dask-glm";
+  version = "0.3.2";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "58b86cebf04fe5b9e58092e1c467e32e60d01e11b71fdc628baaa9fc6d1adee5";
+  src = fetchFromGitHub {
+    owner = "dask";
+    repo = "dask-glm";
+    tag = version;
+    hash = "sha256-q98QMmw1toashimS16of54cgZgIPqkua3xGD1FZ1nTc=";
   };
 
-  nativeBuildInputs = [ setuptools-scm ];
-  checkInputs = [ pytestCheckHook ];
-  propagatedBuildInputs = [ cloudpickle dask numpy toolz multipledispatch scipy scikit-learn ];
+  # ValueError: The truth value of an empty array is ambiguous. Use `array.size > 0` to check that an array is not empty.
+  postPatch = ''
+    substituteInPlace dask_glm/utils.py \
+      --replace-fail "if arr:" "if (arr is not None) and (arr.size > 0):"
+  '';
 
-  meta = with lib; {
-    homepage = "https://github.com/dask/dask-glm/";
+  build-system = [ setuptools-scm ];
+
+  dependencies = [
+    cloudpickle
+    distributed
+    multipledispatch
+    scikit-learn
+    scipy
+    sparse
+  ] ++ dask.optional-dependencies.array;
+
+  nativeCheckInputs = [
+    pytest-xdist
+    pytestCheckHook
+  ];
+
+  pythonImportsCheck = [ "dask_glm" ];
+
+  disabledTests = [
+    # ValueError: <class 'bool'> can be computed for one-element arrays only.
+    "test_dot_with_sparse"
+  ];
+
+  __darwinAllowLocalNetworking = true;
+
+  meta = {
     description = "Generalized Linear Models with Dask";
-    license = licenses.bsd3;
-    maintainers = [ maintainers.costrouc ];
+    homepage = "https://github.com/dask/dask-glm/";
+    changelog = "https://github.com/dask/dask-glm/releases/tag/${version}";
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ GaetanLepage ];
   };
 }

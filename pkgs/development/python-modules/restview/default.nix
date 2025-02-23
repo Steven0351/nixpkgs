@@ -1,44 +1,54 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, docutils
-, readme_renderer
-, packaging
-, pygments
-, mock
-, pytestCheckHook
+{
+  lib,
+  buildPythonPackage,
+  docutils,
+  fetchPypi,
+  packaging,
+  pygments,
+  pytestCheckHook,
+  pythonOlder,
+  readme-renderer,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "restview";
-  version = "2.9.3";
-  format = "setuptools";
+  version = "3.0.2";
+  pyproject = true;
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "sha256-WVGqIYLnqao6uQbb0PDTPfj+k+ZjGKholknBIorXTNg=";
+    hash = "sha256-i011oL7Xa2e0Vu9wEfTrbJilVsn4N2Qt8iAscxL8zBo=";
   };
 
-  propagatedBuildInputs = [
+  pythonRelaxDeps = [ "readme-renderer" ];
+
+  build-system = [ setuptools ];
+
+  dependencies = [
     docutils
-    readme_renderer
+    readme-renderer
     packaging
     pygments
   ];
 
-  checkInputs = [
-    mock
-    pytestCheckHook
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  pythonImportsCheck = [ "restview" ];
+
+  disabledTests = [
+    # Tests are comparing output
+    "rest_to_html"
   ];
 
-  pythonImportsCheck = [
-    "restview"
-  ];
-
-  meta = {
+  meta = with lib; {
     description = "ReStructuredText viewer";
     homepage = "https://mg.pov.lt/restview/";
-    license = lib.licenses.gpl3Only;
-    maintainers = with lib.maintainers; [ koral ];
+    changelog = "https://github.com/mgedmin/restview/blob/${version}/CHANGES.rst";
+    license = licenses.gpl3Plus;
+    maintainers = with maintainers; [ koral ];
+    mainProgram = "restview";
   };
 }

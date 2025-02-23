@@ -1,47 +1,90 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, pytestCheckHook
-, pytest
-, pytest-cov
-, flaky
-, numpy
-, pandas
-, pytorch
-, scikit-learn
-, scipy
-, tabulate
-, tqdm
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+  numpy,
+  scikit-learn,
+  scipy,
+  setuptools,
+  tabulate,
+  torch,
+  tqdm,
+  flaky,
+  llvmPackages,
+  pandas,
+  pytest-cov-stub,
+  pytestCheckHook,
+  safetensors,
+  pythonAtLeast,
 }:
 
 buildPythonPackage rec {
   pname = "skorch";
-  version = "0.11.0";
+  version = "1.1.0";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "b35cb4e50045742f0ffcfad33044af691d5d36b50212573753a804483a947ca9";
+    hash = "sha256-AguMhI/MO4DNexe5azVEXOw7laTRBN0ecFW81qqh0rY=";
   };
 
-  propagatedBuildInputs = [ numpy pytorch scikit-learn scipy tabulate tqdm ];
-  checkInputs = [ pytest pytest-cov flaky pandas pytestCheckHook ];
+  # AttributeError: 'NoneType' object has no attribute 'span' with Python 3.13
+  # https://github.com/skorch-dev/skorch/issues/1080
+  disabled = pythonOlder "3.9" || pythonAtLeast "3.13";
 
-  disabledTests = [
-    # on CPU, these expect artifacts from previous GPU run
-    "test_load_cuda_params_to_cpu"
-    # failing tests
-    "test_pickle_load"
-    "test_grid_search_with_slds_"
-    "test_grid_search_with_dict_works"
+  build-system = [ setuptools ];
+
+  dependencies = [
+    numpy
+    scikit-learn
+    scipy
+    tabulate
+    torch # implicit dependency
+    tqdm
   ];
 
-  meta = with lib; {
+  nativeCheckInputs = [
+    flaky
+    pandas
+    pytest-cov-stub
+    pytestCheckHook
+    safetensors
+  ];
+
+  checkInputs = lib.optionals stdenv.cc.isClang [ llvmPackages.openmp ];
+
+  disabledTests =
+    [
+      # on CPU, these expect artifacts from previous GPU run
+      "test_load_cuda_params_to_cpu"
+      # failing tests
+      "test_pickle_load"
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      # there is a problem with the compiler selection
+      "test_fit_and_predict_with_compile"
+    ];
+
+  disabledTestPaths =
+    [
+      # tries to import `transformers` and download HuggingFace data
+      "skorch/tests/test_hf.py"
+    ]
+    ++ lib.optionals (stdenv.hostPlatform.system != "x86_64-linux") [
+      # torch.distributed is disabled by default in darwin
+      # aarch64-linux also failed these tests
+      "skorch/tests/test_history.py"
+    ];
+
+  pythonImportsCheck = [ "skorch" ];
+
+  meta = {
     description = "Scikit-learn compatible neural net library using Pytorch";
     homepage = "https://skorch.readthedocs.io";
     changelog = "https://github.com/skorch-dev/skorch/blob/master/CHANGES.md";
-    license = licenses.bsd3;
-    maintainers = with maintainers; [ bcdarwin ];
-    # TypeError: __init__() got an unexpected keyword argument 'iid'
-    broken = true;
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ bcdarwin ];
   };
 }

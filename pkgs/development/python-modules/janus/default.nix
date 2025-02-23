@@ -1,26 +1,37 @@
-{ lib, buildPythonPackage, fetchPypi, pytestCheckHook, pythonOlder, pytest-asyncio
-, typing-extensions
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  pytestCheckHook,
+  pythonOlder,
+  pytest-asyncio,
+  pytest-benchmark,
+  pytest-cov-stub,
+  typing-extensions,
 }:
 
 buildPythonPackage rec {
   pname = "janus";
-  version = "0.7.0";
+  version = "2.0.0";
+  format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "f10dcf5776e8d49cc30ec86d5eb7268eeec39abaa24fe0332ee8fb8fa3611845";
+    sha256 = "sha256-CXDzjg5yVABJbINKNopn7lUdw7WtCiV+Ey9bRvLnd3A=";
   };
 
   disabled = pythonOlder "3.6";
 
-  propagatedBuildInputs = [
-    typing-extensions
+  propagatedBuildInputs = [ typing-extensions ];
+
+  nativeCheckInputs = [
+    pytest-asyncio
+    pytest-benchmark
+    pytest-cov-stub
+    pytestCheckHook
   ];
 
-  checkInputs = [ pytest-asyncio pytestCheckHook ];
-
-  # also fails upstream: https://github.com/aio-libs/janus/pull/258
-  disabledTests = [ "test_format" ];
+  pytestFlagsArray = [ "--benchmark-disable" ];
 
   meta = with lib; {
     description = "Mixed sync-async queue";

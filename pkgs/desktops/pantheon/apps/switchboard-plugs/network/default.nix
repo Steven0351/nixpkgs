@@ -1,39 +1,43 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, nix-update-script
-, meson
-, ninja
-, pkg-config
-, substituteAll
-, vala
-, libgee
-, granite
-, gtk3
-, networkmanager
-, networkmanagerapplet
-, libnma
-, switchboard
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  nix-update-script,
+  meson,
+  ninja,
+  pkg-config,
+  replaceVars,
+  vala,
+  libadwaita,
+  libgee,
+  gettext,
+  granite7,
+  gtk4,
+  networkmanager,
+  networkmanagerapplet,
+  libnma-gtk4,
+  switchboard,
 }:
 
 stdenv.mkDerivation rec {
   pname = "switchboard-plug-network";
-  version = "2.4.1";
+  version = "8.1.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "0nqihsbrpjw4nx1c50g854bqybniw38adi78vzg8nyl6ikj2r0z4";
+    hash = "sha256-mTTcavuxnRSBiifFpga14xPReHguvp9wIUS71Djorjk=";
   };
 
-  passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
-  };
+  patches = [
+    (replaceVars ./fix-paths.patch {
+      inherit networkmanagerapplet;
+    })
+  ];
 
   nativeBuildInputs = [
+    gettext
     meson
     ninja
     pkg-config
@@ -41,20 +45,20 @@ stdenv.mkDerivation rec {
   ];
 
   buildInputs = [
-    granite
-    gtk3
+    granite7
+    gtk4
+    libadwaita
     libgee
     networkmanager
-    libnma
+    libnma-gtk4
     switchboard
   ];
 
-  patches = [
-    (substituteAll {
-      src = ./fix-paths.patch;
-      inherit networkmanagerapplet;
-    })
-  ];
+  strictDeps = true;
+
+  passthru = {
+    updateScript = nix-update-script { };
+  };
 
   meta = with lib; {
     description = "Switchboard Networking Plug";

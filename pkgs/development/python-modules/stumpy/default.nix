@@ -1,56 +1,72 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, numpy
-, scipy
-, numba
-, pandas
-, dask
-, distributed
-, coverage
-, flake8
-, black
-, pytest
-, codecov
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools,
+  setuptools-scm,
+
+  # dependencies
+  numba,
+  numpy,
+  scipy,
+
+  # tests
+  dask,
+  distributed,
+  pandas,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "stumpy";
-  version = "1.10.2";
+  version = "1.13.0";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "TDAmeritrade";
     repo = "stumpy";
-    rev = "v${version}";
-    sha256 = "1v17lxqgvkd3n33c2y1j1zy74xy92vsx2l89yhan89msnnb7aafr";
+    tag = "v${version}";
+    hash = "sha256-S+Rb6pHphXfbqz4VMnN1p7ZrlWB/g7XCdy/T5/Q8VD8=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [
+    setuptools
+    setuptools-scm
+  ];
+
+  dependencies = [
+    numba
     numpy
     scipy
-    numba
   ];
 
-  checkInputs = [
-    pandas
+  nativeCheckInputs = [
     dask
     distributed
-    coverage
-    flake8
-    black
-    pytest
-    codecov
+    pandas
+    pytestCheckHook
   ];
 
-  # ignore changed numpy operations
-  checkPhase = ''
-    pytest -k 'not allc'
-  '';
+  pythonImportsCheck = [ "stumpy" ];
 
-  meta = with lib; {
-    description = "A powerful and scalable library that can be used for a variety of time series data mining tasks";
+  pytestFlagsArray = [
+    # whole testsuite is very CPU intensive, only run core tests
+    # TODO: move entire test suite to passthru.tests
+    "tests/test_core.py"
+  ];
+
+  meta = {
+    description = "Library that can be used for a variety of time series data mining tasks";
+    changelog = "https://github.com/TDAmeritrade/stumpy/blob/v${version}/CHANGELOG.md";
     homepage = "https://github.com/TDAmeritrade/stumpy";
-    license = licenses.bsd3;
-    maintainers = [ maintainers.costrouc ];
+    license = lib.licenses.bsd3;
+    maintainers = [ ];
+    badPlatforms = [
+      # Multiple tests fail with:
+      # Segmentation fault (core dumped)
+      "aarch64-linux"
+    ];
   };
 }

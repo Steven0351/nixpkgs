@@ -1,17 +1,24 @@
-{ lib, fetchFromGitHub, rustPlatform, libxcb, python3 }:
+{
+  lib,
+  fetchFromGitHub,
+  rustPlatform,
+  libxcb,
+  python3,
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "i3wsr";
-  version = "2.0.1";
+  version = "3.1.1";
 
   src = fetchFromGitHub {
     owner = "roosta";
-    repo = pname;
+    repo = "i3wsr";
     rev = "v${version}";
-    sha256 = "sha256-JzQWfC0kmnMArpIAE5fgb3YLmXktSCH5aUdrQH9pCbo=";
+    hash = "sha256-RTJ+up3mt6KuMkTBCXDUmztxwEQCeyAjuhhOUrdIfTo=";
   };
 
-  cargoSha256 = "sha256-ZvSdJLaw1nfaqpTBKIiHiXvNFSZhsmLk0PBrV6ykv/w=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-7WS+8EGGl8sJ3TeT7IM+u1AiD0teJ2AITb++zK/keXs=";
 
   nativeBuildInputs = [ python3 ];
   buildInputs = [ libxcb ];
@@ -20,6 +27,7 @@ rustPlatform.buildRustPackage rec {
   doCheck = false;
 
   meta = with lib; {
+    mainProgram = "i3wsr";
     description = "Automatically change i3 workspace names based on their contents";
     longDescription = ''
       Automatically sets the workspace names to match the windows on the workspace.

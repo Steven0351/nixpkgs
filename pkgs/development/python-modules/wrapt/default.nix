@@ -1,23 +1,45 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  pytestCheckHook,
+  sphinxHook,
+  sphinx-rtd-theme,
 }:
 
 buildPythonPackage rec {
   pname = "wrapt";
-  version = "1.13.3";
+  version = "1.17.1";
+  pyproject = true;
 
-  # No tests in archive
-  doCheck = false;
-
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "1fea9cd438686e6682271d36f3481a9f3636195578bab9ca3382e2f5f01fc185";
+  src = fetchFromGitHub {
+    owner = "GrahamDumpleton";
+    repo = "wrapt";
+    tag = version;
+    hash = "sha256-k1OuGzUFF2gRsx3xrJ5/YwpXB6ksK0TsaZq6x3+ckf0=";
   };
 
-  meta = {
+  build-system = [ setuptools ];
+
+  nativeBuildInputs = [
+    sphinxHook
+    sphinx-rtd-theme
+  ];
+
+  outputs = [
+    "out"
+    "doc"
+  ];
+
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  pythonImportsCheck = [ "wrapt" ];
+
+  meta = with lib; {
     description = "Module for decorators, wrappers and monkey patching";
-    license = lib.licenses.bsd2;
     homepage = "https://github.com/GrahamDumpleton/wrapt";
+    license = licenses.bsd2;
+    maintainers = [ ];
   };
 }

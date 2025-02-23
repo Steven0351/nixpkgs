@@ -1,25 +1,42 @@
-{ lib, stdenv, fetchFromGitHub, ponyc }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  ponyc,
+  nix-update-script,
+}:
 
-stdenv.mkDerivation ( rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "corral";
-  version = "0.5.3";
+  version = "0.8.2";
 
   src = fetchFromGitHub {
     owner = "ponylang";
-    repo = pname;
-    rev = version;
-    sha256 = "sha256-27J1Y3+tbZK7RX+63xVV2eaX/LF525vBR3Ff9EYDEl0=";
+    repo = "corral";
+    rev = finalAttrs.version;
+    hash = "sha256-arcMtCSbXFLBT2ygdj44UKMdGStlgHyiBgt5xZpPRhs=";
   };
 
-  buildInputs = [ ponyc ];
+  strictDeps = true;
 
-  installFlags = [ "prefix=${placeholder "out"}" "install" ];
+  nativeBuildInputs = [ ponyc ];
+
+  installFlags = [
+    "prefix=${placeholder "out"}"
+    "install"
+  ];
+
+  passthru.updateScript = nix-update-script { };
 
   meta = with lib; {
     description = "Corral is a dependency management tool for ponylang (ponyc)";
     homepage = "https://www.ponylang.io";
+    changelog = "https://github.com/ponylang/corral/blob/${finalAttrs.version}/CHANGELOG.md";
     license = licenses.bsd2;
-    maintainers = with maintainers; [ redvers ];
-    platforms = [ "x86_64-linux" "x86_64-darwin" ];
+    maintainers = with maintainers; [
+      redvers
+      numinit
+    ];
+    inherit (ponyc.meta) platforms;
   };
 })

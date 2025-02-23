@@ -1,52 +1,72 @@
-{ lib
-, fetchFromGitHub
-, pythonOlder
-, buildPythonPackage
-, python
-, django
-, jinja2
-, sqlparse
-, html5lib
+{
+  lib,
+  fetchFromGitHub,
+  pythonOlder,
+  buildPythonPackage,
+
+  # build-system
+  hatchling,
+
+  # dependencies
+  django,
+  sqlparse,
+
+  # tests
+  django-csp,
+  html5lib,
+  jinja2,
+  pygments,
+  pytest-django,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "django-debug-toolbar";
-  version = "3.2.2";
-  disabled = pythonOlder "3.6";
+  version = "5.0.1";
+  pyproject = true;
+
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "jazzband";
-    repo = pname;
-    rev = version;
-    sha256 = "1dgb3s449nasbnqd5xfikxrfhwwilwlgrw9nv4bfkapvkzpdszjk";
+    repo = "django-debug-toolbar";
+    tag = version;
+    hash = "sha256-Q0joSIFXhoVmNQ+AfESdEWUGY1xmJzr4iR6Ak54YM7c=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ hatchling ];
+
+  dependencies = [
     django
-    jinja2
     sqlparse
   ];
 
-  DB_BACKEND = "sqlite3";
-  DB_NAME = ":memory:";
-  TEST_ARGS = "tests";
-  DJANGO_SETTINGS_MODULE = "tests.settings";
+  env = {
+    DB_BACKEND = "sqlite3";
+    DB_NAME = ":memory:";
+    DJANGO_SETTINGS_MODULE = "tests.settings";
+  };
 
-  checkInputs = [
+  nativeCheckInputs = [
+    django-csp
     html5lib
+    jinja2
+    pygments
   ];
 
   checkPhase = ''
     runHook preCheck
-    ${python.interpreter} -m django test ${TEST_ARGS}
+    python -m django test tests
     runHook postCheck
   '';
 
-  meta = {
+  pythonImportsCheck = [ "debug_toolbar" ];
+
+  meta = with lib; {
     description = "Configurable set of panels that display debug information about the current request/response";
     homepage = "https://github.com/jazzband/django-debug-toolbar";
     changelog = "https://django-debug-toolbar.readthedocs.io/en/latest/changes.html";
-    maintainers =  with lib.maintainers; [ yuu ];
-    license = lib.licenses.bsd3;
+    license = licenses.bsd3;
+    maintainers = with maintainers; [ yuu ];
   };
 }

@@ -1,28 +1,57 @@
-{ lib, fetchFromGitHub, buildPythonPackage, pytestCheckHook, eth-hash, eth-typing,
-  cytoolz, hypothesis }:
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  isPyPy,
+  # dependencies
+  eth-hash,
+  eth-typing,
+  cytoolz,
+  toolz,
+  # nativeCheckInputs
+  hypothesis,
+  mypy,
+  pytestCheckHook,
+}:
 
 buildPythonPackage rec {
   pname = "eth-utils";
-  version = "1.10.0";
+  version = "5.1.0";
+  pyproject = true;
 
-  # Tests are missing from the PyPI source tarball so let's use GitHub
-  # https://github.com/ethereum/eth-utils/issues/130
   src = fetchFromGitHub {
     owner = "ethereum";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-sq3H4HmUFUipqVYleZxWLG1gBsQEoNwcZAXiKckacek=";
+    repo = "eth-utils";
+    tag = "v${version}";
+    hash = "sha256-uPzg1gUEsulQL2u22R/REHWx1ZtbMxvcXf6UgWqkDF4=";
   };
 
-  checkInputs = [ pytestCheckHook hypothesis ];
-  propagatedBuildInputs = [ eth-hash eth-typing cytoolz ];
+  build-system = [ setuptools ];
+
+  propagatedBuildInputs =
+    [
+      eth-hash
+      eth-typing
+    ]
+    ++ lib.optional (!isPyPy) cytoolz
+    ++ lib.optional isPyPy toolz;
+
+  nativeCheckInputs = [
+    hypothesis
+    mypy
+    pytestCheckHook
+  ] ++ eth-hash.optional-dependencies.pycryptodome;
 
   pythonImportsCheck = [ "eth_utils" ];
 
-  meta = {
+  disabledTests = [ "test_install_local_wheel" ];
+
+  meta = with lib; {
+    changelog = "https://github.com/ethereum/eth-utils/blob/${src.rev}/docs/release_notes.rst";
     description = "Common utility functions for codebases which interact with ethereum";
     homepage = "https://github.com/ethereum/eth-utils";
-    license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ jluttine ];
+    license = licenses.mit;
+    maintainers = with maintainers; [ siraben ];
   };
 }

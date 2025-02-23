@@ -1,34 +1,40 @@
-{ stdenv, lib, buildPythonPackage, pythonOlder, pythonAtLeast
-, fetchPypi
-, libmaxminddb
-, ipaddress
-, mock
-, nose
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchPypi,
+  libmaxminddb,
+  pytestCheckHook,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
-  version = "2.2.0";
   pname = "maxminddb";
-  disabled = pythonOlder "3.6";
+  version = "2.6.3";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "e37707ec4fab115804670e0fb7aedb4b57075a8b6f80052bdc648d3c005184e5";
+    hash = "sha256-0sOAa6p6oEeqG6x0GefjU9tDX4jwnVEQaoTbrPZF0lQ=";
   };
 
   buildInputs = [ libmaxminddb ];
 
-  propagatedBuildInputs = [ ipaddress ];
+  nativeCheckInputs = [ pytestCheckHook ];
 
-  checkInputs = [ nose mock ];
+  pythonImportsCheck = [ "maxminddb" ];
 
-  # Tests are broken for macOS on python38
-  doCheck = !(stdenv.isDarwin && pythonAtLeast "3.8");
+  # The multiprocessing tests fail on Darwin because multiprocessing uses spawn instead of fork,
+  # resulting in an exception when it can’t pickle the `lookup` local function.
+  disabledTests = lib.optionals stdenv.hostPlatform.isDarwin [ "multiprocessing" ];
 
   meta = with lib; {
     description = "Reader for the MaxMind DB format";
-    homepage = "https://www.maxmind.com/en/home";
+    homepage = "https://github.com/maxmind/MaxMind-DB-Reader-python";
+    changelog = "https://github.com/maxmind/MaxMind-DB-Reader-python/blob/v${version}/HISTORY.rst";
     license = licenses.asl20;
-    maintainers = with maintainers; [ ];
+    maintainers = [ ];
   };
 }

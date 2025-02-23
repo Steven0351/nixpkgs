@@ -41,7 +41,13 @@ close ANSWERS;
 sub runConfig {
 
     # Run `make config'.
-    my $pid = open2(\*IN, \*OUT, "make -C $ENV{SRC} O=$buildRoot config SHELL=bash ARCH=$ENV{ARCH} CC=$ENV{CC} HOSTCC=$ENV{HOSTCC} HOSTCXX=$ENV{HOSTCXX} $makeFlags");
+    #
+    # We have to pass through the target toolchain, because `make config` checks them for versions. This is
+    # required to get clang LTO working, among other things.
+    my $pid = open2(\*IN, \*OUT,
+                    "make -C $ENV{SRC} O=$buildRoot config"
+                    . " SHELL=bash ARCH=$ENV{ARCH} CROSS_COMPILE=$ENV{CROSS_COMPILE}"
+                    . " $makeFlags");
 
     # Parse the output, look for questions and then send an
     # appropriate answer.
@@ -81,7 +87,7 @@ sub runConfig {
                 my $question = $1; my $name = $2; my $alts = $3;
                 my $answer = "";
                 # Build everything as a module if possible.
-                $answer = "m" if $autoModules && $alts =~ /\/m/ && !($preferBuiltin && $alts =~ /Y/);
+                $answer = "m" if $autoModules && $alts =~ qr{\A(\w/)+m/(\w/)*\?\z} && !($preferBuiltin && $alts =~ /Y/);
                 $answer = $answers{$name} if defined $answers{$name};
                 print STDERR "QUESTION: $question, NAME: $name, ALTS: $alts, ANSWER: $answer\n" if $debug;
                 print OUT "$answer\n";

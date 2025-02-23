@@ -1,33 +1,66 @@
-{ lib, stdenv, buildPythonPackage, fetchFromGitHub, scipy, ffmpeg-full }:
+{
+  lib,
+  audioop-lts,
+  buildPythonPackage,
+  fetchFromGitHub,
+  fetchpatch,
+  ffmpeg-full,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
+  replaceVars,
+}:
 
 buildPythonPackage rec {
   pname = "pydub";
   version = "0.25.1";
-  # pypi version doesn't include required data files for tests
+  pyproject = true;
+
+  disabled = pythonOlder "3.7";
+
   src = fetchFromGitHub {
     owner = "jiaaro";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "0xskllq66wqndjfmvp58k26cv3w480sqsil6ifwp4gghir7hqc8m";
+    repo = "pydub";
+    tag = "v${version}";
+    hash = "sha256-FTEMT47wPXK5i4ZGjTVAhI/NjJio3F2dbBZzYzClU3c=";
   };
 
+  patches = [
+    # Fix test assertions, https://github.com/jiaaro/pydub/pull/769
+    (fetchpatch {
+      name = "fix-assertions.patch";
+      url = "https://github.com/jiaaro/pydub/commit/66c1bf7813ae8621a71484fdcdf609734c0d8efd.patch";
+      hash = "sha256-3OIzvTgGK3r4/s5y7izHvouB4uJEmjO6cgKvegtTf7A=";
+    })
+    # Fix paths to ffmpeg, ffplay and ffprobe
+    (replaceVars ./ffmpeg-fix-path.patch {
+      ffmpeg = lib.getExe ffmpeg-full;
+      ffplay = lib.getExe' ffmpeg-full "ffplay";
+      ffprobe = lib.getExe' ffmpeg-full "ffprobe";
+    })
+  ];
 
-  # disable a test that fails on aarch64 due to rounding errors
-  postPatch = lib.optionalString stdenv.isAarch64 ''
-    substituteInPlace test/test.py \
-      --replace "test_overlay_with_gain_change" "notest_overlay_with_gain_change"
-  '';
+  nativeBuildInputs = [ setuptools ];
 
-  checkInputs = [ scipy ffmpeg-full ];
+  dependencies = [ audioop-lts ];
 
-  checkPhase = ''
-    python test/test.py
-  '';
+  nativeCheckInputs = [
+    pytestCheckHook
+  ];
+
+  pythonImportsCheck = [
+    "pydub"
+    "pydub.audio_segment"
+    "pydub.playback"
+  ];
+
+  pytestFlagsArray = [ "test/test.py" ];
 
   meta = with lib; {
-    description = "Manipulate audio with a simple and easy high level interface.";
-    homepage    = "http://pydub.com/";
-    license     = licenses.mit;
-    platforms   = platforms.all;
+    description = "Manipulate audio with a simple and easy high level interface";
+    homepage = "http://pydub.com";
+    changelog = "https://github.com/jiaaro/pydub/blob/v${version}/CHANGELOG.md";
+    license = licenses.mit;
+    maintainers = [ ];
   };
 }

@@ -1,101 +1,74 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, nix-update-script
-, meson
-, ninja
-, pkg-config
-, vala
-, desktop-file-utils
-, gtk3
-, libaccounts-glib
-, libexif
-, libgee
-, libhandy
-, geocode-glib
-, gexiv2
-, libgphoto2
-, granite
-, gst_all_1
-, libgudev
-, json-glib
-, libraw
-, librest
-, libsoup
-, sqlite
-, python3
-, scour
-, webkitgtk
-, libwebp
-, appstream
-, wrapGAppsHook
-, elementary-icon-theme
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  nix-update-script,
+  meson,
+  ninja,
+  pkg-config,
+  vala,
+  gtk3,
+  libexif,
+  libgee,
+  libhandy,
+  libportal-gtk3,
+  geocode-glib_2,
+  gexiv2,
+  libgphoto2,
+  granite,
+  gst_all_1,
+  libgudev,
+  libraw,
+  sqlite,
+  libwebp,
+  wrapGAppsHook3,
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-photos";
-  version = "2.7.3";
-
-  repoName = "photos";
+  version = "8.0.1";
 
   src = fetchFromGitHub {
     owner = "elementary";
-    repo = repoName;
+    repo = "photos";
     rev = version;
-    sha256 = "sha256-ja4ElW0FNm9oNyn+00SdI2Cxep6LyWTYM8Blc6bnuiY=";
+    sha256 = "sha256-+aqBeGRisngbH/EALROTr0IZvyrWIlQvFFEgJNfv95Y=";
   };
 
   nativeBuildInputs = [
-    appstream
-    desktop-file-utils
     meson
     ninja
     pkg-config
-    python3
     vala
-    wrapGAppsHook
+    wrapGAppsHook3
   ];
 
-  buildInputs = with gst_all_1; [
-    elementary-icon-theme
-    geocode-glib
-    gexiv2
-    granite
-    gst-plugins-bad
-    gst-plugins-base
-    gst-plugins-good
-    gst-plugins-ugly
-    gstreamer
-    gtk3
-    json-glib
-    libaccounts-glib
-    libexif
-    libgee
-    libgphoto2
-    libgudev
-    libhandy
-    libraw
-    librest
-    libsoup
-    libwebp
-    scour
-    sqlite
-    webkitgtk
-  ];
-
-  mesonFlags = [
-    "-Dplugins=false"
-  ];
-
-  postPatch = ''
-    chmod +x meson/post_install.py
-    patchShebangs meson/post_install.py
-  '';
+  buildInputs =
+    [
+      geocode-glib_2
+      gexiv2
+      granite
+      gtk3
+      libexif
+      libgee
+      libgphoto2
+      libgudev
+      libhandy
+      libportal-gtk3
+      libraw
+      libwebp
+      sqlite
+    ]
+    ++ (with gst_all_1; [
+      gst-plugins-bad
+      gst-plugins-base
+      gst-plugins-good
+      gst-plugins-ugly
+      gstreamer
+    ]);
 
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

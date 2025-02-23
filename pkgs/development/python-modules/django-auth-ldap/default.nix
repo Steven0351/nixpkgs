@@ -1,24 +1,52 @@
-{ lib
-, buildPythonPackage
-, fetchPypi, isPy27
-, ldap , django
-, mock
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # buildtime
+  setuptools-scm,
+
+  # runtime
+  django,
+  python-ldap,
+
+  # tests
+  openldap,
 }:
 
 buildPythonPackage rec {
   pname = "django-auth-ldap";
-  version = "3.0.0";
-  disabled = isPy27;
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "1f2d5c562d9ba9a5e9a64099ae9798e1a63840a11afe4d1c4a9c74121f066eaa";
+  version = "5.1.0";
+  pyproject = true;
+
+  src = fetchFromGitHub {
+    owner = "django-auth-ldap";
+    repo = "django-auth-ldap";
+    tag = version;
+    hash = "sha256-uOxncRsBwy+1ynESku7+5yaY1MPIo4V8ppE2zfcDkws=";
   };
 
-  propagatedBuildInputs = [ ldap django ];
-  checkInputs = [ mock ];
+  build-system = [ setuptools-scm ];
 
-  # django.core.exceptions.ImproperlyConfigured: Requested setting INSTALLED_APPS, but settings are not configured. You must either define the environment variable DJANGO_SETTINGS_MODULE or call settings.configure() before accessing settings
+  dependencies = [
+    django
+    python-ldap
+  ];
+
+  # Duplicate attributeType: "MSADat2:102"\nslapadd: could not add entry dn="cn={4}msuser,cn=schema,cn=config" (line=1): \xd0\xbe\xff\xff\xff\x7f\n'
   doCheck = false;
+
+  preCheck = ''
+    export PATH=${openldap}/bin:${openldap}/libexec:$PATH
+    export SCHEMA=${openldap}/etc/schema
+    export DJANGO_SETTINGS_MODULE=tests.settings
+  '';
+
+  checkPhase = ''
+    runHook preCheck
+    python -m django test --settings tests.settings
+    runHook postCheck
+  '';
 
   pythonImportsCheck = [ "django_auth_ldap" ];
 
@@ -27,6 +55,6 @@ buildPythonPackage rec {
     homepage = "https://github.com/django-auth-ldap/django-auth-ldap";
     license = licenses.bsd2;
     maintainers = with maintainers; [ mmai ];
-    platforms = platforms.linux;
+    platforms = platforms.linux ++ platforms.darwin;
   };
 }

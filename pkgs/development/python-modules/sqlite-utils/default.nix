@@ -1,58 +1,62 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, fetchpatch
-, pythonOlder
-, click
-, click-default-group
-, dateutils
-, sqlite-fts4
-, tabulate
-, pytestCheckHook
-, hypothesis
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+  click,
+  click-default-group,
+  python-dateutil,
+  sqlite-fts4,
+  tabulate,
+  pluggy,
+  pytestCheckHook,
+  hypothesis,
+  testers,
+  sqlite-utils,
+  setuptools,
 }:
-
 buildPythonPackage rec {
   pname = "sqlite-utils";
-  version = "3.19";
-  disabled = pythonOlder "3.6";
+  version = "3.38";
+  pyproject = true;
+
+  build-system = [ setuptools ];
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
-    inherit pname version;
-    sha256 = "509099fce5f25faada6e76b6fb90e8ef5ba0f1715177933a816718be0c8e7244";
+    inherit version;
+    pname = "sqlite_utils";
+    hash = "sha256-Gud7kxOEBSIFoVR41ClGT2xno6w7Tq/TxnSskA9iOqs=";
   };
 
-  patches = [
-    # https://github.com/simonw/sqlite-utils/pull/347
-    (fetchpatch {
-      name = "sqlite-utils-better-test_rebuild_fts.patch";
-      url = "https://github.com/simonw/sqlite-utils/pull/347/commits/1a7ef2fe2064ace01d5535fb771f941296fb642a.diff";
-      sha256 = "sha256-WKCQGMqr8WYjG7cmAH5pYBhgikowbt3r6hObwtMDDUY=";
-    })
-  ];
-
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace '"pytest-runner"' ""
-  '';
-
-  propagatedBuildInputs = [
+  dependencies = [
     click
     click-default-group
-    dateutils
+    python-dateutil
     sqlite-fts4
     tabulate
+    pluggy
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
     hypothesis
   ];
 
+  pythonImportsCheck = [ "sqlite_utils" ];
+
+  passthru.tests.version = testers.testVersion { package = sqlite-utils; };
+
   meta = with lib; {
     description = "Python CLI utility and library for manipulating SQLite databases";
+    mainProgram = "sqlite-utils";
     homepage = "https://github.com/simonw/sqlite-utils";
+    changelog = "https://github.com/simonw/sqlite-utils/releases/tag/${version}";
     license = licenses.asl20;
-    maintainers = with maintainers; [ meatcar ];
+    maintainers = with maintainers; [
+      meatcar
+      techknowlogick
+    ];
   };
 }

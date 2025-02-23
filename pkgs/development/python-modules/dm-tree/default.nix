@@ -1,31 +1,47 @@
-{ abseil-cpp
-, absl-py
-, attrs
-, buildPythonPackage
-, cmake
-, fetchFromGitHub
-, lib
-, numpy
-, pybind11
-, wrapt
-}:
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
 
+  # nativeBuildInputs
+  cmake,
+  pybind11,
+
+  # buildInputs
+  abseil-cpp,
+
+  # build-system
+  setuptools,
+
+  # dependencies
+  absl-py,
+  attrs,
+  numpy,
+  wrapt,
+}:
 buildPythonPackage rec {
   pname = "dm-tree";
-  # As of 2021-12-29, the latest stable version still builds with Bazel.
-  version = "unstable-2021-12-20";
+  version = "0.1.9";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "deepmind";
     repo = "tree";
-    rev = "b452e5c2743e7489b4ba7f16ecd51c516d7cd8e3";
-    sha256 = "1r187xwpvnnj98lyasngcv3lbxz0ziihpl5dbnjbfbjr0kh6z0j9";
+    tag = version;
+    hash = "sha256-cHuaqA89r90TCPVHNP7B1cfK+WxqmfTXndJ/dRdmM24=";
   };
 
-  patches = [
-    ./cmake.patch
+  # Allows to forward cmake args through the conventional `cmakeFlags`
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace-fail \
+        "cmake_args = [" \
+        'cmake_args = [ *os.environ.get("cmakeFlags", "").split(),'
+  '';
+  cmakeFlags = [
+    (lib.cmakeBool "USE_SYSTEM_ABSEIL" true)
+    (lib.cmakeBool "USE_SYSTEM_PYBIND11" true)
   ];
-
   dontUseCmakeConfigure = true;
 
   nativeBuildInputs = [
@@ -38,7 +54,11 @@ buildPythonPackage rec {
     pybind11
   ];
 
-  checkInputs = [
+  build-system = [ setuptools ];
+
+  # It is unclear whether those are runtime dependencies or simply test dependencies
+  # https://github.com/google-deepmind/tree/issues/127
+  dependencies = [
     absl-py
     attrs
     numpy
@@ -47,10 +67,14 @@ buildPythonPackage rec {
 
   pythonImportsCheck = [ "tree" ];
 
-  meta = with lib; {
-    description = "Tree is a library for working with nested data structures.";
+  meta = {
+    description = "Tree is a library for working with nested data structures";
     homepage = "https://github.com/deepmind/tree";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ samuela ndl ];
+    changelog = "https://github.com/google-deepmind/tree/releases/tag/${version}";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [
+      samuela
+      ndl
+    ];
   };
 }

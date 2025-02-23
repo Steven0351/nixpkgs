@@ -1,23 +1,46 @@
-{ lib, buildPythonPackage, fetchPypi, pytest, aiohttp }:
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  setuptools-scm,
+  aiohttp,
+  pytest,
+  pytest-asyncio,
+  pytestCheckHook,
+}:
 
 buildPythonPackage rec {
   pname = "pytest-aiohttp";
-  version = "0.3.0";
+  version = "1.1.0";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "0kx4mbs9bflycd8x9af0idcjhdgnzri3nw1qb0vpfyb3751qaaf9";
+  __darwinAllowLocalNetworking = true;
+
+  src = fetchFromGitHub {
+    owner = "aio-libs";
+    repo = "pytest-aiohttp";
+    tag = "v${version}";
+    hash = "sha256-5xUY3SVaoZzCZE/qfAP4R49HbtBMYj5jMN5viLEzEkM=";
   };
+
+  build-system = [
+    setuptools
+    setuptools-scm
+  ];
 
   buildInputs = [ pytest ];
 
-  propagatedBuildInputs = [ aiohttp ];
+  dependencies = [
+    aiohttp
+    pytest-asyncio
+  ];
 
-  # There are no tests
-  doCheck = false;
+  nativeCheckInputs = [ pytestCheckHook ];
 
   meta = with lib; {
     homepage = "https://github.com/aio-libs/pytest-aiohttp/";
+    changelog = "https://github.com/aio-libs/pytest-aiohttp/blob/${src.rev}/CHANGES.rst";
     description = "Pytest plugin for aiohttp support";
     license = licenses.asl20;
     maintainers = with maintainers; [ dotlambda ];

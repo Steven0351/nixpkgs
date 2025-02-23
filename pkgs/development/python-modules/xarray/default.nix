@@ -1,48 +1,55 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, numpy
-, pandas
-, pytestCheckHook
-, pythonOlder
-, setuptools
-, setuptoolsBuildHook
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  fetchpatch,
+  numpy,
+  packaging,
+  pandas,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
+  setuptools-scm,
 }:
 
 buildPythonPackage rec {
   pname = "xarray";
-  version = "0.20.2";
-  format = "pyproject";
+  version = "2025.01.1";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.10";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-wuvoDKgbEKAkH2h23MNKyWluXFzc30dY2nz0vXMsQfc=";
+  src = fetchFromGitHub {
+    owner = "pydata";
+    repo = "xarray";
+    tag = "v${version}";
+    hash = "sha256-BUpMNdYu72/R36r6XXHQqwIWL/ip+O+yE4WxcQQ3ZLY=";
   };
 
-  nativeBuildInputs = [
-    setuptoolsBuildHook
-  ];
-
-  propagatedBuildInputs = [
-    numpy
-    pandas
+  build-system = [
     setuptools
+    setuptools-scm
   ];
 
-  checkInputs = [
+  dependencies = [
+    numpy
+    packaging
+    pandas
+  ];
+
+  nativeCheckInputs = [
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [
-    "xarray"
-  ];
+  pythonImportsCheck = [ "xarray" ];
 
-  meta = with lib; {
+  meta = {
+    changelog = "https://github.com/pydata/xarray/blob/${src.tag}/doc/whats-new.rst";
     description = "N-D labeled arrays and datasets in Python";
     homepage = "https://github.com/pydata/xarray";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ fridh ];
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [
+      doronbehar
+    ];
   };
 }

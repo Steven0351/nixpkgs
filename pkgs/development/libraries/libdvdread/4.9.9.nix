@@ -1,14 +1,20 @@
-{lib, stdenv, fetchurl, libdvdcss}:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  libdvdcss,
+}:
 
-stdenv.mkDerivation {
-  name = "libdvdread-4.9.9";
+stdenv.mkDerivation rec {
+  pname = "libdvdread";
+  version = "4.9.9";
 
   src = fetchurl {
-    url = "http://dvdnav.mplayerhq.hu/releases/libdvdread-4.9.9.tar.xz";
+    url = "http://dvdnav.mplayerhq.hu/releases/libdvdread-${version}.tar.xz";
     sha256 = "d91275471ef69d488b05cf15c60e1cd65e17648bfc692b405787419f47ca424a";
   };
 
-  buildInputs = [libdvdcss];
+  buildInputs = [ libdvdcss ];
 
   NIX_LDFLAGS = "-ldvdcss";
 
@@ -18,7 +24,7 @@ stdenv.mkDerivation {
 
   meta = {
     homepage = "http://dvdnav.mplayerhq.hu/";
-    description = "A library for reading DVDs";
+    description = "Library for reading DVDs";
     license = lib.licenses.gpl2;
     maintainers = [ lib.maintainers.wmertens ];
     platforms = lib.platforms.linux;

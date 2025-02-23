@@ -1,27 +1,40 @@
-{ lib, buildPythonPackage, fetchPypi, linuxHeaders }:
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  linuxHeaders,
+  setuptools,
+}:
 
 buildPythonPackage rec {
   pname = "evdev";
-  version = "1.4.0";
+  version = "1.9.0";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "8782740eb1a86b187334c07feb5127d3faa0b236e113206dfe3ae8f77fb1aaf1";
+    hash = "sha256-OCGLyVUHytdWvGIaX+enekHrjZwSE4Vd6OS6Croo558=";
   };
+
+  patchPhase = ''
+    substituteInPlace setup.py \
+      --replace-fail /usr/include ${linuxHeaders}/include
+  '';
+
+  build-system = [ setuptools ];
 
   buildInputs = [ linuxHeaders ];
 
-  patchPhase = ''
-    substituteInPlace setup.py --replace /usr/include/linux ${linuxHeaders}/include/linux
-  '';
-
   doCheck = false;
+
+  pythonImportsCheck = [ "evdev" ];
 
   meta = with lib; {
     description = "Provides bindings to the generic input event interface in Linux";
-    homepage = "https://pythonhosted.org/evdev";
+    homepage = "https://python-evdev.readthedocs.io/";
+    changelog = "https://github.com/gvalkov/python-evdev/blob/v${version}/docs/changelog.rst";
     license = licenses.bsd3;
-    maintainers = with maintainers; [ goibhniu ];
+    maintainers = [ ];
     platforms = platforms.linux;
   };
 }

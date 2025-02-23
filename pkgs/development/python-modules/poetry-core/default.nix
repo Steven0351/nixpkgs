@@ -1,67 +1,69 @@
-{ lib, buildPythonPackage, fetchFromGitHub, pythonOlder, isPy27
-, git
-, importlib-metadata
-, intreehooks
-, pathlib2
-, pep517
-, pytest-mock
-, pytestCheckHook
-, tomlkit
-, typing ? null
-, virtualenv
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pythonOlder,
+  build,
+  git,
+  pytest-cov-stub,
+  pytest-mock,
+  pytestCheckHook,
+  setuptools,
+  tomli-w,
+  trove-classifiers,
+  virtualenv,
 }:
 
 buildPythonPackage rec {
   pname = "poetry-core";
-  version = "1.0.7";
-  format = "pyproject";
+  version = "2.0.1";
+  pyproject = true;
+
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "python-poetry";
-    repo = pname;
-    rev = version;
-    sha256 = "0v86x8f8pcbviv2cdn7jjbgj3c994qasx0bqk1kr0mj8m6pjwy9z";
+    repo = "poetry-core";
+    tag = version;
+    hash = "sha256-X3HFvnjbQ8An856QwSsWm5bmzs9KuscPE9LaVebNfgk=";
   };
 
-  postPatch = lib.optionalString (pythonOlder "3.8") ''
-    # remove >1.0.3
-    substituteInPlace pyproject.toml \
-      --replace 'importlib-metadata = {version = "^1.7.0", python = "~2.7 || >=3.5, <3.8"}' \
-        'importlib-metadata = {version = ">=1.7.0", python = "~2.7 || >=3.5, <3.8"}'
-  '';
-
-  nativeBuildInputs = [
-    intreehooks
-  ];
-
-  propagatedBuildInputs = lib.optionals (pythonOlder "3.8") [
-    importlib-metadata
-  ] ++ lib.optionals isPy27 [
-    pathlib2
-    typing
-  ];
-
-  checkInputs = [
+  nativeCheckInputs = [
+    build
     git
-    pep517
     pytest-mock
+    pytest-cov-stub
     pytestCheckHook
-    tomlkit
+    setuptools
+    tomli-w
+    trove-classifiers
     virtualenv
   ];
 
-  # requires git history to work correctly
-  disabledTests = [ "default_with_excluded_data" "default_src_with_excluded_data" ];
+  disabledTests = [
+    # Requires git history to work correctly
+    "default_with_excluded_data"
+    "default_src_with_excluded_data"
+    "test_package_with_include"
+    # Distribution timestamp mismatches, as we operate on 1980-01-02
+    "test_sdist_mtime_zero"
+    "test_sdist_members_mtime_default"
+    "test_dist_info_date_time_default_value"
+  ];
 
   pythonImportsCheck = [ "poetry.core" ];
 
-  # allow for package to use pep420's native namespaces
+  # Allow for packages to use PEP420's native namespace
   pythonNamespaces = [ "poetry" ];
 
+  env.NIX_CFLAGS_COMPILE = lib.optionalString stdenv.cc.isClang "-Wno-int-conversion";
+
   meta = with lib; {
-    description = "Core utilities for Poetry";
+    changelog = "https://github.com/python-poetry/poetry-core/blob/${src.tag}/CHANGELOG.md";
+    description = "Poetry PEP 517 Build Backend";
     homepage = "https://github.com/python-poetry/poetry-core/";
     license = licenses.mit;
-    maintainers = with maintainers; [ jonringer ];
+    maintainers = teams.python.members;
   };
 }

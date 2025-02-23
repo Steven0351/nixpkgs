@@ -1,11 +1,12 @@
-{ lib, stdenv, linux }:
-
-with lib;
-
-assert versionAtLeast linux.version "4.6";
+{
+  lib,
+  stdenv,
+  linux,
+}:
 
 stdenv.mkDerivation {
-  name = "gpio-utils-${linux.version}";
+  pname = "gpio-utils";
+  version = linux.version;
 
   inherit (linux) src makeFlags;
 
@@ -14,12 +15,16 @@ stdenv.mkDerivation {
   '';
 
   separateDebugInfo = true;
-  installFlags = [ "install" "DESTDIR=$(out)" "bindir=/bin" ];
+  installFlags = [
+    "install"
+    "DESTDIR=$(out)"
+    "bindir=/bin"
+  ];
 
-  meta = {
+  meta = with lib; {
     description = "Linux tools to inspect the gpiochip interface";
     maintainers = with maintainers; [ kwohlfahrt ];
     platforms = platforms.linux;
-    license = licenses.gpl2;
+    license = licenses.gpl2Only;
   };
 }

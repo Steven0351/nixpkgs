@@ -1,7 +1,7 @@
 { stdenv, lib, haskellPackages, writeText, gawk }:
 let
   awk                   = "${gawk}/bin/awk";
-  dockerCredentialsFile = import ./credentials.nix;
+  dockerCredentialsFile = import ./credentials.nix { inherit lib; };
 in
 { fetcher
 , name
@@ -35,8 +35,7 @@ in
 stdenv.mkDerivation {
   inherit name;
   builder = writeText "${fetcher}-builder.sh" ''
-    source "$stdenv/setup"
-    header "${fetcher} exporting to $out"
+    echo "${fetcher} exporting to $out"
 
     declare -A creds
 
@@ -49,7 +48,7 @@ stdenv.mkDerivation {
     fi
 
     if [ -f "$dockerCredentialsFile" ]; then
-      header "using credentials from $dockerCredentialsFile"
+      echo "using credentials from $dockerCredentialsFile"
 
       CREDSFILE=$(cat "$dockerCredentialsFile")
       creds[token]=$(${awk} -F'=' '/DOCKER_TOKEN/ {print $2}' <<< "$CREDSFILE" | head -n1)
@@ -77,8 +76,6 @@ stdenv.mkDerivation {
       ${layerDigestFlag} \
       "${repository}/${imageName}" \
       "${tag}"
-
-    stopNest
   '';
 
   buildInputs = [ haskellPackages.hocker ];

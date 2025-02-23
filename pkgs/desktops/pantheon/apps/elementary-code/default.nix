@@ -1,47 +1,39 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, nix-update-script
-, pkg-config
-, meson
-, ninja
-, vala
-, python3
-, desktop-file-utils
-, gtk3
-, granite
-, libgee
-, libhandy
-, elementary-icon-theme
-, appstream
-, libpeas
-, editorconfig-core-c
-, gtksourceview4
-, gtkspell3
-, libsoup
-, vte
-, webkitgtk
-, ctags
-, libgit2-glib
-, wrapGAppsHook
-, polkit
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  nix-update-script,
+  appstream,
+  desktop-file-utils,
+  meson,
+  ninja,
+  pkg-config,
+  polkit,
+  vala,
+  wrapGAppsHook3,
+  editorconfig-core-c,
+  granite,
+  gtk3,
+  gtksourceview4,
+  gtkspell3,
+  libgee,
+  libgit2-glib,
+  libhandy,
+  libpeas,
+  libsoup_2_4,
+  vte,
+  ctags,
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-code";
-  version = "6.1.0";
+  version = "7.4.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "code";
     rev = version;
-    sha256 = "sha256-AXmMcPj2hf33G5v3TUg+eZwaKOdVlRvoVXglMJFHRjw=";
-  };
-
-  passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    sha256 = "sha256-KoRpGBYen1eOdMBHOTBMopC+mPMOkD+iYWV3JA21mKc=";
   };
 
   nativeBuildInputs = [
@@ -51,15 +43,12 @@ stdenv.mkDerivation rec {
     ninja
     pkg-config
     polkit # needed for ITS rules
-    python3
     vala
-    wrapGAppsHook
+    wrapGAppsHook3
   ];
 
   buildInputs = [
-    ctags
     editorconfig-core-c
-    elementary-icon-theme
     granite
     gtk3
     gtksourceview4
@@ -68,9 +57,8 @@ stdenv.mkDerivation rec {
     libgit2-glib
     libhandy
     libpeas
-    libsoup
+    libsoup_2_4
     vte
-    webkitgtk
   ];
 
   # ctags needed in path by outline plugin
@@ -80,10 +68,9 @@ stdenv.mkDerivation rec {
     )
   '';
 
-  postPatch = ''
-    chmod +x meson/post_install.py
-    patchShebangs meson/post_install.py
-  '';
+  passthru = {
+    updateScript = nix-update-script { };
+  };
 
   meta = with lib; {
     description = "Code editor designed for elementary OS";

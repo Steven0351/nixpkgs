@@ -1,40 +1,49 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, pytest
-, numpy
-, libsndfile
-, cffi
-, isPyPy
-, stdenv
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  setuptools,
+  pytestCheckHook,
+  numpy,
+  libsndfile,
+  cffi,
+  isPyPy,
+  stdenv,
 }:
 
 buildPythonPackage rec {
   pname = "soundfile";
-  version = "0.10.3.post1";
+  version = "0.13.1";
+  pyproject = true;
+  # https://github.com/bastibe/python-soundfile/issues/157
+  disabled = isPyPy || stdenv.hostPlatform.isi686;
 
   src = fetchPypi {
-    pname = "SoundFile";
-    inherit version;
-    sha256 = "0yqhrfz7xkvqrwdxdx2ydy4h467sk7z3gf984y1x2cq7cm1gy329";
+    inherit pname version;
+    hash = "sha256-ssaNqx4wKXMXCApbQ99X4wJYTEnilC3v3eCszMU/Dls=";
   };
 
-    checkInputs = [ pytest ];
-    propagatedBuildInputs = [ numpy libsndfile cffi ];
-    propagatedNativeBuildInputs = [ cffi ];
+  postPatch = ''
+    substituteInPlace soundfile.py --replace "_find_library('sndfile')" "'${libsndfile.out}/lib/libsndfile${stdenv.hostPlatform.extensions.sharedLibrary}'"
+  '';
 
-    meta = {
-      description = "An audio library based on libsndfile, CFFI and NumPy";
-      license = lib.licenses.bsd3;
-      homepage = "https://github.com/bastibe/PySoundFile";
-      maintainers = with lib.maintainers; [ fridh ];
-    };
+  build-system = [
+    setuptools
+    cffi
+  ];
 
-    postPatch = ''
-      substituteInPlace soundfile.py --replace "_find_library('sndfile')" "'${libsndfile.out}/lib/libsndfile${stdenv.hostPlatform.extensions.sharedLibrary}'"
-    '';
+  dependencies = [
+    numpy
+    cffi
+  ];
 
-    # https://github.com/bastibe/PySoundFile/issues/157
-    disabled = isPyPy ||  stdenv.isi686;
+  pythonImportsCheck = [ "soundfile" ];
 
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  meta = {
+    description = "Audio library based on libsndfile, CFFI and NumPy";
+    license = lib.licenses.bsd3;
+    homepage = "https://github.com/bastibe/python-soundfile";
+  };
 }

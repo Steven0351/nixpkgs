@@ -1,21 +1,15 @@
-{ lib, stdenv
-, fetchurl
-, fetchpatch
-, pkg-config
-, mono
-, glib
-, pango
-, gtk3
-, GConf ? null
-, libglade ? null
-, libgtkhtml ? null
-, gtkhtml ? null
-, libgnomecanvas ? null
-, libgnomeui ? null
-, libgnomeprint ? null
-, libgnomeprintui ? null
-, libxml2
-, monoDLLFixer
+{
+  lib,
+  stdenv,
+  fetchurl,
+  fetchpatch,
+  pkg-config,
+  mono,
+  glib,
+  pango,
+  gtk3,
+  libxml2,
+  monoDLLFixer,
 }:
 
 stdenv.mkDerivation rec {
@@ -30,9 +24,14 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ pkg-config ];
   buildInputs = [
-    mono glib pango gtk3 GConf libglade libgnomecanvas
-    libgtkhtml libgnomeui libgnomeprint libgnomeprintui gtkhtml libxml2
+    mono
+    glib
+    pango
+    gtk3
+    libxml2
   ];
+
+  env.NIX_CFLAGS_COMPILE = "-Wno-error=implicit-function-declaration";
 
   patches = [
     # Fixes MONO_PROFILE_ENTER_LEAVE undeclared when compiling against newer versions of mono.

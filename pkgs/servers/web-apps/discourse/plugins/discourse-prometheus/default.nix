@@ -1,13 +1,17 @@
-{ lib, stdenv, mkDiscoursePlugin, fetchFromGitHub }:
+{
+  lib,
+  mkDiscoursePlugin,
+  fetchFromGitHub,
+}:
 
- mkDiscoursePlugin {
+mkDiscoursePlugin {
   bundlerEnvArgs.gemdir = ./.;
   name = "discourse-prometheus";
   src = fetchFromGitHub {
     owner = "discourse";
     repo = "discourse-prometheus";
-    rev = "aaaf3eda30e5fc03c880c056c1f2388739569fb0";
-    sha256 = "sha256-8bfjPCcwDjEC7Tu0Jr9VZRpaDlP2nlIOWBH8pUQakxo=";
+    rev = "b1b899ca995783ef5eba90c35dbfc120a2949c38";
+    sha256 = "sha256-tSU1aba8EadObOsb/nRM4jAdQ6D1F9QiIaGoHi2GGDk=";
   };
 
   patches = [

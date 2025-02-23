@@ -1,30 +1,53 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, pytestCheckHook
-, FormEncode
-, pastedeploy
-, paste
-, pydispatcher
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pytestCheckHook,
+  setuptools,
+  formencode,
+  pastedeploy,
+  paste,
+  pydispatcher,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
-  pname = "SQLObject";
-  version = "3.9.1";
+  pname = "sqlobject";
+  version = "3.12.0";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "45064184decf7f42d386704e5f47a70dee517d3e449b610506e174025f84d921";
+  disabled = pythonOlder "3.7";
+
+  src = fetchFromGitHub {
+    owner = "sqlobject";
+    repo = "sqlobject";
+    tag = version;
+    hash = "sha256-fxENuVTmp/EcDAdVqQWdtqtEW1mI+dfaImgWzGAaWfQ=";
   };
 
-  propagatedBuildInputs = [ FormEncode pastedeploy paste pydispatcher ];
+  build-system = [ setuptools ];
 
-  checkInputs = [ pytestCheckHook ];
+  dependencies = [
+    formencode
+    paste
+    pastedeploy
+    pydispatcher
+  ];
+
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  disabledTests = [
+    # https://github.com/sqlobject/sqlobject/issues/179
+    "test_fail"
+  ];
+
+  pythonImportsCheck = [ "sqlobject" ];
 
   meta = with lib; {
     description = "Object Relational Manager for providing an object interface to your database";
-    homepage = "http://www.sqlobject.org/";
-    license = licenses.lgpl21;
-    maintainers = with maintainers; [ ];
+    homepage = "https://www.sqlobject.org/";
+    changelog = "https://github.com/sqlobject/sqlobject/blob/${version}/docs/News.rst";
+    license = licenses.lgpl21Only;
+    maintainers = [ ];
   };
 }

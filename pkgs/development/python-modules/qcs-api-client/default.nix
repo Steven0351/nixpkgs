@@ -1,68 +1,89 @@
-{ lib
-, attrs
-, buildPythonPackage
-, fetchPypi
-, httpx
-, iso8601
-, pydantic
-, pyjwt
-, pytest-asyncio
-, pytestCheckHook
-, python-dateutil
-, pythonOlder
-, respx
-, retrying
-, rfc3339
-, toml
+{
+  lib,
+  attrs,
+  buildPythonPackage,
+  fetchFromGitHub,
+  fetchpatch,
+  httpx,
+  iso8601,
+  poetry-core,
+  pydantic,
+  pydantic-settings,
+  pyjwt,
+  pytest-asyncio,
+  pytestCheckHook,
+  python-dateutil,
+  pythonAtLeast,
+  pythonOlder,
+  tenacity,
+  respx,
+  retrying,
+  rfc3339,
+  toml,
 }:
 
 buildPythonPackage rec {
   pname = "qcs-api-client";
-  version = "0.20.5";
-  format = "setuptools";
+  version = "0.25.5";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.8";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-nSkCARZk6K5JMgiXunRBrb3pn5Ti6f493OOFzJYaW0M=";
+  src = fetchFromGitHub {
+    owner = "rigetti";
+    repo = "qcs-api-client-python";
+    tag = "v${version}";
+    hash = "sha256-fVUvAXtZcMWBBK0wdGJA0oIneCNKI4GI2qNIc30HU9M=";
   };
 
-  propagatedBuildInputs = [
+  patches = [
+    # Switch to poetry-core, https://github.com/rigetti/qcs-api-client-python/pull/2
+    (fetchpatch {
+      name = "switch-to-poetry-core.patch";
+      url = "https://github.com/rigetti/qcs-api-client-python/commit/32f0b3c7070a65f4edf5b2552648d88435469e44.patch";
+      hash = "sha256-mOc+Q/5cmwPziojtxeEMWWHSDvqvzZlNRbPtOSeTinQ=";
+    })
+  ];
+
+  pythonRelaxDeps = [
+    "attrs"
+    "httpx"
+    "iso8601"
+    "pydantic"
+    "tenacity"
+  ];
+
+  build-system = [ poetry-core ];
+
+  dependencies = [
     attrs
     httpx
     iso8601
     pydantic
+    pydantic-settings
     pyjwt
     python-dateutil
     retrying
     rfc3339
+    tenacity
     toml
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-asyncio
     pytestCheckHook
     respx
   ];
 
-  postPatch = ''
-    substituteInPlace setup.py \
-      --replace "attrs>=20.1.0,<21.0.0" "attrs" \
-      --replace "httpx>=0.15.0,<0.16.0" "httpx" \
-      --replace "pyjwt>=1.7.1,<2.0.0" "pyjwt"
-  '';
+  # Tests are failing on Python 3.11, Fatal Python error: Aborted
+  doCheck = !(pythonAtLeast "3.11");
 
-  # Project has no tests
-  doCheck = false;
-
-  pythonImportsCheck = [
-    "qcs_api_client"
-  ];
+  pythonImportsCheck = [ "qcs_api_client" ];
 
   meta = with lib; {
     description = "Python library for accessing the Rigetti QCS API";
-    homepage = "https://pypi.org/project/qcs-api-client/";
+    homepage = "https://qcs-api-client-python.readthedocs.io/";
+    changelog = "https://github.com/rigetti/qcs-api-client-python/releases/tag/v${version}";
     license = licenses.asl20;
     maintainers = with maintainers; [ fab ];
   };

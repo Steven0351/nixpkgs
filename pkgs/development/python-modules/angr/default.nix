@@ -1,63 +1,67 @@
-{ lib
-, stdenv
-, ailment
-, archinfo
-, buildPythonPackage
-, cachetools
-, capstone
-, cffi
-, claripy
-, cle
-, cppheaderparser
-, dpkt
-, fetchFromGitHub
-, GitPython
-, itanium_demangler
-, mulpyplexer
-, nampa
-, networkx
-, progressbar2
-, protobuf
-, psutil
-, pycparser
-, pythonOlder
-, pyvex
-, sqlalchemy
-, rpyc
-, sortedcontainers
-, unicorn
+{
+  lib,
+  stdenv,
+  ailment,
+  archinfo,
+  buildPythonPackage,
+  cachetools,
+  capstone,
+  cffi,
+  claripy,
+  cle,
+  cppheaderparser,
+  dpkt,
+  fetchFromGitHub,
+  gitpython,
+  itanium-demangler,
+  mulpyplexer,
+  nampa,
+  networkx,
+  progressbar2,
+  protobuf,
+  psutil,
+  pycparser,
+  pyformlang,
+  pythonOlder,
+  pyvex,
+  rich,
+  rpyc,
+  setuptools,
+  sortedcontainers,
+  sqlalchemy,
+  sympy,
+  unicorn,
+  unique-log-filter,
 }:
-
-let
-  # Only the pinned release in setup.py works properly
-  unicorn' = unicorn.overridePythonAttrs (old: rec {
-    pname = "unicorn";
-    version = "1.0.2-rc4";
-    src =  fetchFromGitHub {
-      owner = "unicorn-engine";
-      repo = pname;
-      rev = version;
-      sha256 = "17nyccgk7hpc4hab24yn57f1xnmr7kq4px98zbp2bkwcrxny8gwy";
-    };
-    doCheck = false;
-  });
-in
 
 buildPythonPackage rec {
   pname = "angr";
-  version = "9.1.10913";
-  disabled = pythonOlder "3.6";
+  version = "9.2.141";
+  pyproject = true;
+
+  disabled = pythonOlder "3.11";
 
   src = fetchFromGitHub {
-    owner = pname;
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-AZlqSalTOQh3QR959ZuanFuTZVKi9valKJ3snsquC/A=";
+    owner = "angr";
+    repo = "angr";
+    tag = "v${version}";
+    hash = "sha256-rrJTYe3o/Ra8+EKAA7t0M02tWVN4Ul5ueUar7lpUvMg=";
   };
 
-  setupPyBuildFlags = lib.optionals stdenv.isLinux [ "--plat-name" "linux" ];
+  postPatch = ''
+    # unicorn is also part of build-system
+    substituteInPlace pyproject.toml \
+      --replace-fail "unicorn==2.0.1.post1" "unicorn"
+  '';
 
-  propagatedBuildInputs = [
+  pythonRelaxDeps = [
+    "capstone"
+    "unicorn"
+  ];
+
+  build-system = [ setuptools ];
+
+  dependencies = [
     ailment
     archinfo
     cachetools
@@ -67,28 +71,39 @@ buildPythonPackage rec {
     cle
     cppheaderparser
     dpkt
-    GitPython
-    itanium_demangler
+    gitpython
+    itanium-demangler
     mulpyplexer
     nampa
     networkx
     progressbar2
     protobuf
     psutil
-    sqlalchemy
     pycparser
+    pyformlang
     pyvex
-    sqlalchemy
+    rich
     rpyc
     sortedcontainers
-    unicorn'
+    sqlalchemy
+    sympy
+    unicorn
+    unique-log-filter
+  ];
+
+  optional-dependencies = {
+    AngrDB = [ sqlalchemy ];
+  };
+
+  setupPyBuildFlags = lib.optionals stdenv.hostPlatform.isLinux [
+    "--plat-name"
+    "linux"
   ];
 
   # Tests have additional requirements, e.g., pypcode and angr binaries
   # cle is executing the tests with the angr binaries
   doCheck = false;
 
-  # See http://angr.io/api-doc/
   pythonImportsCheck = [
     "angr"
     "claripy"
@@ -102,5 +117,7 @@ buildPythonPackage rec {
     homepage = "https://angr.io/";
     license = with licenses; [ bsd2 ];
     maintainers = with maintainers; [ fab ];
+    # angr is pining unicorn
+    broken = versionAtLeast unicorn.version "2.0.1.post1";
   };
 }

@@ -1,61 +1,72 @@
-{ buildPythonPackage
-, fetchPypi
-, pytest
-, six
-, tqdm
-, pyyaml
-, docopt
-, requests
-, jsonpatch
-, args
-, schema
-, responses
-, backports_csv
-, isPy3k
-, lib
-, glibcLocales
-, setuptools
-, urllib3
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pytestCheckHook,
+  requests,
+  jsonpatch,
+  schema,
+  responses,
+  setuptools,
+  tqdm,
+  urllib3,
+  pythonOlder,
+  importlib-metadata,
 }:
 
 buildPythonPackage rec {
   pname = "internetarchive";
-  version = "2.2.0";
+  version = "5.2.1";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "ebd11ecd038c71e75a3aef8d87750b46480169ecaefb23074c4ae48440bf2836";
+  disabled = pythonOlder "3.9";
+
+  src = fetchFromGitHub {
+    owner = "jjjake";
+    repo = "internetarchive";
+    tag = "v${version}";
+    hash = "sha256-2CShbIS5hq+queeHHlE53Vf8sl4HQySp1ZU8mz67Qbc=";
   };
 
-  propagatedBuildInputs = [
-    six
+  build-system = [ setuptools ];
+
+  dependencies = [
     tqdm
-    pyyaml
-    docopt
     requests
     jsonpatch
-    args
     schema
-    setuptools
     urllib3
-  ] ++ lib.optionals (!isPy3k) [ backports_csv ];
+  ] ++ lib.optionals (pythonOlder "3.10") [ importlib-metadata ];
 
-  checkInputs = [ pytest responses glibcLocales ];
+  nativeCheckInputs = [
+    responses
+    pytestCheckHook
+  ];
 
-  # tests depend on network
-  doCheck = false;
+  disabledTests = [
+    # Tests require network access
+    "test_get_item_with_kwargs"
+    "test_upload"
+    "test_upload_metadata"
+    "test_upload_queue_derive"
+    "test_upload_validate_identifie"
+    "test_upload_validate_identifier"
+  ];
 
-  checkPhase = ''
-    LC_ALL=en_US.utf-8 pytest tests
-  '';
+  disabledTestPaths = [
+    # Tests require network access
+    "tests/cli/test_ia.py"
+    "tests/cli/test_ia_download.py"
+  ];
 
   pythonImportsCheck = [ "internetarchive" ];
 
-  meta = with lib; {
-    description = "A Python and Command-Line Interface to Archive.org";
+  meta = {
+    description = "Python and Command-Line Interface to Archive.org";
     homepage = "https://github.com/jjjake/internetarchive";
-    changelog = "https://github.com/jjjake/internetarchive/raw/v${version}/HISTORY.rst";
-    license = licenses.agpl3Plus;
-    maintainers = [ maintainers.marsam ];
+    changelog = "https://github.com/jjjake/internetarchive/blob/${src.tag}/HISTORY.rst";
+    license = lib.licenses.agpl3Plus;
+    maintainers = with lib.maintainers; [ pyrox0 ];
+    mainProgram = "ia";
   };
 }

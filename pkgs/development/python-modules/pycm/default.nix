@@ -1,33 +1,59 @@
-{ lib, buildPythonPackage, fetchFromGitHub, isPy3k, matplotlib, numpy, pytestCheckHook, seaborn }:
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  matplotlib,
+  numpy,
+  pytestCheckHook,
+  pytest-cov-stub,
+  seaborn,
+  setuptools,
+}:
 
 buildPythonPackage rec {
   pname = "pycm";
-  version = "3.3";
-
-  disabled = !isPy3k;
+  version = "4.2";
+  pyproject = true;
 
   src = fetchFromGitHub {
-    owner  = "sepandhaghighi";
-    repo   = pname;
-    rev    = "v${version}";
-    sha256 = "0i3qpb20mnc22qny1ar3yvxb1dac7njwi8bvi5sy5kywz10c5dkw";
+    owner = "sepandhaghighi";
+    repo = pname;
+    tag = "v${version}";
+    hash = "sha256-oceLARBP9D6NlMQiDvzIpJNNcod5D1O4xo3YzrUstso=";
   };
 
-  # remove a trivial dependency on the author's `art` Python ASCII art library
+  build-system = [ setuptools ];
+
+  dependencies = [
+    matplotlib
+    numpy
+    seaborn
+  ];
+
+  nativeCheckInputs = [
+    pytestCheckHook
+    pytest-cov-stub
+    matplotlib
+  ];
+
+  disabledTests = [
+    "plot_error_test" # broken doctest (expects matplotlib import exception)
+  ];
+
   postPatch = ''
+    # Remove a trivial dependency on the author's `art` Python ASCII art library
     rm pycm/__main__.py
-    rm Otherfiles/notebook_check.py  # also depends on python3Packages.notebook
-    substituteInPlace setup.py --replace '=get_requires()' '=[]'
+    substituteInPlace setup.py \
+      --replace-fail '=get_requires()' '=[]'
   '';
 
-  checkInputs = [ pytestCheckHook ];
-  disabledTests = [ "pycm.pycm_compare.Compare" ];  # output formatting error
-  propagatedBuildInputs = [ matplotlib numpy seaborn ];
+  pythonImportsCheck = [ "pycm" ];
 
-  meta = with lib; {
+  meta = {
     description = "Multiclass confusion matrix library";
-    homepage = "https://pycm.ir";
-    license = licenses.mit;
-    maintainers = with maintainers; [ bcdarwin ];
+    homepage = "https://pycm.io";
+    changelog = "https://github.com/sepandhaghighi/pycm/releases/tag/${src.tag}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ bcdarwin ];
   };
 }

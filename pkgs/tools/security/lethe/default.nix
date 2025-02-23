@@ -1,29 +1,32 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, rustPlatform
-, Security
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  rustPlatform,
+  Security,
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "lethe";
-  version = "0.6.1";
+  version = "0.8.2";
 
   src = fetchFromGitHub {
     owner = "kostassoid";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-0UYUzef7ja8nc2zs7eWqqXQfVVbEJEH9/NRRHVkvkYk=";
+    sha256 = "sha256-y2D/80pnpYpTl+q9COTQkvtj9lzBlOWuMcnn5WFnX8E=";
   };
 
-  cargoSha256 = "sha256-suE8USKTZECVlTX4Wpz3vapo/Wmn7qaC3eyAJ3gmzqk=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-Ky39RpLoYks4xDiheSsrUj3l/ZrGcY+y5IuDZ28pH/c=";
 
-  buildInputs = lib.optional stdenv.isDarwin Security;
+  buildInputs = lib.optional stdenv.hostPlatform.isDarwin Security;
 
   meta = with lib; {
     description = "Tool to wipe drives in a secure way";
     homepage = "https://github.com/kostassoid/lethe";
     license = licenses.asl20;
     maintainers = with maintainers; [ fab ];
+    mainProgram = "lethe";
   };
 }

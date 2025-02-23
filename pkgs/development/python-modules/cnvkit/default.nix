@@ -1,74 +1,91 @@
-{ lib
-, fetchFromGitHub
-, fetchpatch
-, rPackages
-, buildPythonPackage
-, biopython
-, numpy
-, scipy
-, scikit-learn
-, pandas
-, matplotlib
-, reportlab
-, pysam
-, future
-, pillow
-, pomegranate
-, pyfaidx
-, python
-, R
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  fetchpatch,
+
+  # dependencies
+  R,
+  biopython,
+  matplotlib,
+  numpy,
+  pandas,
+  pomegranate,
+  pyfaidx,
+  pysam,
+  rPackages,
+  reportlab,
+  scikit-learn,
+  scipy,
+
+  # tests
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
-  pname = "CNVkit";
-  version = "0.9.7";
+  pname = "cnvkit";
+  version = "0.9.12";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "etal";
     repo = "cnvkit";
-    rev = "v${version}";
-    sha256 = "022zplgqil5l76vri647cyjx427vnbg5r2gw6lw712d2janvdjm7";
+    tag = "v${version}";
+    hash = "sha256-ZdE3EUNZpEXRHTRKwVhuj3BWQWczpdFbg4pVr0+AHiQ=";
   };
 
   patches = [
-    # Fix: AttributeError: module 'pandas.io.common' has no attribute 'EmptyDataError'
     (fetchpatch {
-      url = "https://github.com/etal/cnvkit/commit/392adfffedfa0415e635b72c5027835b0a8d7ab5.patch";
-      sha256 = "0s0gwyy0hybmhc3jij2v9l44b6lkcmclii8bkwsazzj2kc24m2rh";
+      name = "fix-numpy2-compat";
+      url = "https://github.com/etal/cnvkit/commit/5cb6aeaf40ea5572063cf9914c456c307b7ddf7a.patch";
+      hash = "sha256-VwGAMGKuX2Kx9xL9GX/PB94/7LkT0dSLbWIfVO8F9NI=";
     })
   ];
 
-  propagatedBuildInputs = [
-    biopython
-    numpy
-    scipy
-    scikit-learn
-    pandas
-    matplotlib
-    reportlab
-    pyfaidx
-    pysam
-    future
-    pillow
-    pomegranate
-    rPackages.DNAcopy
+  pythonRelaxDeps = [
+    # https://github.com/etal/cnvkit/issues/815
+    "pomegranate"
   ];
 
-  checkInputs = [ R ];
-
-  checkPhase = ''
-    pushd test/
-    ${python.interpreter} test_io.py
-    ${python.interpreter} test_genome.py
-    ${python.interpreter} test_cnvlib.py
-    ${python.interpreter} test_commands.py
-    ${python.interpreter} test_r.py
+  # Numpy 2 compatibility
+  postPatch = ''
+    substituteInPlace skgenome/intersect.py \
+      --replace-fail "np.string_" "np.bytes_"
   '';
 
-  meta = with lib; {
+  dependencies = [
+    biopython
+    matplotlib
+    numpy
+    pandas
+    pomegranate
+    pyfaidx
+    pysam
+    rPackages.DNAcopy
+    reportlab
+    scikit-learn
+    scipy
+  ];
+
+  pythonImportsCheck = [ "cnvlib" ];
+
+  nativeCheckInputs = [
+    pytestCheckHook
+    R
+  ];
+
+  disabledTests = [
+    # AttributeError: module 'pomegranate' has no attribute 'NormalDistribution'
+    # https://github.com/etal/cnvkit/issues/815
+    "test_batch"
+    "test_segment_hmm"
+  ];
+
+  meta = {
     homepage = "https://cnvkit.readthedocs.io";
-    description = "A Python library and command-line software toolkit to infer and visualize copy number from high-throughput DNA sequencing data";
-    license = licenses.asl20;
-    maintainers = [ maintainers.jbedo ];
+    description = "Python library and command-line software toolkit to infer and visualize copy number from high-throughput DNA sequencing data";
+    changelog = "https://github.com/etal/cnvkit/releases/tag/v${version}";
+    license = lib.licenses.asl20;
+    maintainers = [ lib.maintainers.jbedo ];
   };
 }

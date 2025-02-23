@@ -1,25 +1,34 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, isPy3k
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pythonOlder,
+  pytestCheckHook,
+  setuptools-scm,
 }:
 
 buildPythonPackage rec {
   pname = "cppy";
-  version = "1.1.0";
+  version = "1.3.0";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "4eda6f1952054a270f32dc11df7c5e24b259a09fddf7bfaa5f33df9fb4a29642";
+  disabled = pythonOlder "3.7";
+
+  src = fetchFromGitHub {
+    owner = "nucleic";
+    repo = "cppy";
+    tag = version;
+    hash = "sha256-RwwXwdjpq4ZjUyHkWoh3eaJDzIV3MargeoBJ+nTHsyg=";
   };
 
-  # Headers-only library, no tests
-  doCheck = false;
+  build-system = [ setuptools-scm ];
 
-  # Not supported
-  disabled = !isPy3k;
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  pythonImportsCheck = [ "cppy" ];
 
   meta = {
+    changelog = "https://github.com/nucleic/cppy/releases/tag/${src.tag}";
     description = "C++ headers for C extension development";
     homepage = "https://github.com/nucleic/cppy";
     license = lib.licenses.bsd3;

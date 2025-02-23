@@ -1,40 +1,38 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, nix-update-script
-, substituteAll
-, pkg-config
-, meson
-, python3
-, ninja
-, vala
-, gtk3
-, granite
-, wingpanel
-, evolution-data-server
-, libical
-, libgee
-, libhandy
-, libxml2
-, libsoup
-, libgdata
-, elementary-calendar
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  nix-update-script,
+  replaceVars,
+  pkg-config,
+  meson,
+  ninja,
+  vala,
+  gtk3,
+  granite,
+  wingpanel,
+  evolution-data-server,
+  libical,
+  libgee,
+  libhandy,
+  libxml2,
+  libsoup_2_4,
+  elementary-calendar,
 }:
 
 stdenv.mkDerivation rec {
   pname = "wingpanel-indicator-datetime";
-  version = "2.4.0";
+  version = "2.4.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "sha256-GxlnzLDrZmDDAGlUMoM4k4SkbCqra3Th6ugRAj3Wse4=";
+    sha256 = "sha256-iR80pF3KUe0WboFm2/f1ZK9/wER2LfmRBd92e8jGTHs=";
   };
 
   patches = [
-    (substituteAll {
-      src = ./fix-paths.patch;
+    (replaceVars ./fix-paths.patch {
       elementary_calendar = elementary-calendar;
     })
   ];
@@ -44,7 +42,6 @@ stdenv.mkDerivation rec {
     meson
     ninja
     pkg-config
-    python3
     vala
   ];
 
@@ -55,20 +52,12 @@ stdenv.mkDerivation rec {
     libgee
     libhandy
     libical
-    libsoup
+    libsoup_2_4
     wingpanel
-    libgdata # required by some dependency transitively
   ];
 
-  postPatch = ''
-    chmod +x meson/post_install.py
-    patchShebangs meson/post_install.py
-  '';
-
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {

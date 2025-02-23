@@ -1,49 +1,71 @@
-{ lib, buildPythonPackage, fetchPypi, pythonOlder
-, importlib-metadata
-, keyring
-, pkginfo
-, pyblake2
-, readme_renderer
-, requests
-, requests-toolbelt
-, setuptools-scm
-, tqdm
-, colorama
-, rfc3986
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+  importlib-metadata,
+  keyring,
+  packaging,
+  pkginfo,
+  readme-renderer,
+  requests,
+  requests-toolbelt,
+  rich,
+  rfc3986,
+  setuptools,
+  setuptools-scm,
+  urllib3,
+  build,
+  pretend,
+  pytest-socket,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "twine";
-  version = "3.4.2";
-  format = "pyproject";
-  disabled = pythonOlder "3.6";
+  version = "6.0.1";
+  pyproject = true;
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "4caec0f1ed78dc4c9b83ad537e453d03ce485725f2aea57f1bb3fdde78dae936";
+    hash = "sha256-NhWLCd9UBuHJwfuO2yT8K+OHcJRD5zdmibk4UxWC7ic=";
   };
 
-  nativeBuildInputs = [ setuptools-scm ];
-  propagatedBuildInputs = [
-    importlib-metadata
-    keyring
-    pkginfo
-    pyblake2
-    readme_renderer
-    requests
-    requests-toolbelt
-    tqdm
-    colorama
-    rfc3986
+  build-system = [
+    setuptools
+    setuptools-scm
   ];
 
-  # Requires network
-  doCheck = false;
+  dependencies =
+    [
+      keyring
+      packaging
+      pkginfo
+      readme-renderer
+      requests
+      requests-toolbelt
+      rfc3986
+      rich
+      urllib3
+    ]
+    ++ lib.optionals (pythonOlder "3.10") [
+      importlib-metadata
+    ];
+
+  nativeCheckInputs = [
+    build
+    pretend
+    pytest-socket
+    pytestCheckHook
+  ];
+
+  pythonImportsCheck = [ "twine" ];
 
   meta = {
     description = "Collection of utilities for interacting with PyPI";
+    mainProgram = "twine";
     homepage = "https://github.com/pypa/twine";
     license = lib.licenses.asl20;
-    maintainers = with lib.maintainers; [ fridh ];
   };
 }

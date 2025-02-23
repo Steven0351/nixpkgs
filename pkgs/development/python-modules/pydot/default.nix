@@ -1,47 +1,56 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, substituteAll
-, graphviz
-, python
-, chardet
-, pyparsing
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  setuptools,
+  replaceVars,
+  graphviz,
+  pytestCheckHook,
+  chardet,
+  parameterized,
+  pythonOlder,
+  pyparsing,
 }:
 
 buildPythonPackage rec {
   pname = "pydot";
-  version = "1.4.2";
+  version = "3.0.4";
+  pyproject = true;
+
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "248081a39bcb56784deb018977e428605c1c758f10897a339fce1dd728ff007d";
+    hash = "sha256-POiLJVjzgIsDdvIr+mwmOQnhw5geKntim2W0Ue7kol0=";
   };
 
+  build-system = [
+    setuptools
+  ];
+
+  dependencies = [ pyparsing ];
+
+  nativeCheckInputs = [
+    chardet
+    parameterized
+    pytestCheckHook
+  ];
+
   patches = [
-    (substituteAll {
-      src = ./hardcode-graphviz-path.patch;
+    (replaceVars ./hardcode-graphviz-path.patch {
       inherit graphviz;
     })
   ];
 
-  postPatch = ''
-    # test_graphviz_regression_tests also fails upstream: https://github.com/pydot/pydot/pull/198
-    substituteInPlace test/pydot_unittest.py \
-      --replace "test_graphviz_regression_tests" "no_test_graphviz_regression_tests"
-  '';
+  pytestFlagsArray = [ "test/test_pydot.py" ];
 
-  propagatedBuildInputs = [ pyparsing ];
-
-  checkInputs = [ chardet ];
-
-  checkPhase = ''
-    cd test
-    ${python.interpreter} pydot_unittest.py
-  '';
+  pythonImportsCheck = [ "pydot" ];
 
   meta = {
+    description = "Allows to create both directed and non directed graphs from Python";
     homepage = "https://github.com/erocarrera/pydot";
-    description = "Allows to easily create both directed and non directed graphs from Python";
+    changelog = "https://github.com/pydot/pydot/blob/v${version}/ChangeLog";
     license = lib.licenses.mit;
+    maintainers = [ ];
   };
 }

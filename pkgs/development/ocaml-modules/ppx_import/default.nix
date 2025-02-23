@@ -1,28 +1,55 @@
-{ lib, fetchurl, buildDunePackage
-, ppx_tools_versioned
-, ocaml-migrate-parsetree
+{
+  lib,
+  fetchurl,
+  buildDunePackage,
+  ocaml,
+  ounit,
+  ppx_deriving,
+  ppx_sexp_conv,
+  ppxlib,
+  version ? if lib.versionAtLeast ocaml.version "4.11" then "1.11.0" else "1.9.1",
 }:
 
-buildDunePackage rec {
-  pname = "ppx_import";
-  version = "1.8.0";
+lib.throwIfNot (lib.versionAtLeast ppxlib.version "0.24.0")
+  "ppx_import is not available with ppxlib-${ppxlib.version}"
 
-  useDune2 = true;
+  buildDunePackage
+  rec {
+    pname = "ppx_import";
+    inherit version;
 
-  minimumOCamlVersion = "4.04";
+    minimalOCamlVersion = "4.05";
 
-  src = fetchurl {
-    url = "https://github.com/ocaml-ppx/ppx_import/releases/download/v${version}/ppx_import-${version}.tbz";
-    sha256 = "0zqcj70yyp4ik4jc6jz3qs2xhb94vxc6yq9ij0d5cyak28klc3gv";
-  };
+    src = fetchurl {
+      url =
+        let
+          dir = if lib.versionAtLeast version "1.11" then "v${version}" else "${version}";
+        in
+        "https://github.com/ocaml-ppx/ppx_import/releases/download/${dir}/ppx_import-${version}.tbz";
 
-  propagatedBuildInputs = [
-    ppx_tools_versioned ocaml-migrate-parsetree
-  ];
+      hash =
+        {
+          "1.9.1" = "sha256-0bSY4u44Ds84XPIbcT5Vt4AG/4PkzFKMl9CDGFZyIdI=";
+          "1.11.0" = "sha256-Jmfv1IkQoaTkyxoxp9FI0ChNESqCaoDsA7D4ZUbOrBo=";
+        }
+        ."${version}";
+    };
 
-  meta = {
-    description = "A syntax extension that allows to pull in types or signatures from other compiled interface files";
-    license = lib.licenses.mit;
-    homepage = "https://github.com/ocaml-ppx/ppx_import";
-  };
-}
+    propagatedBuildInputs = [
+      ppxlib
+    ];
+
+    checkInputs = [
+      ounit
+      ppx_deriving
+      ppx_sexp_conv
+    ];
+
+    doCheck = true;
+
+    meta = {
+      description = "Syntax extension for importing declarations from interface files";
+      license = lib.licenses.mit;
+      homepage = "https://github.com/ocaml-ppx/ppx_import";
+    };
+  }

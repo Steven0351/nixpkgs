@@ -1,21 +1,35 @@
-{ lib, stdenv, fetchFromGitHub, rustPlatform, pkg-config, openssl, CoreServices, Security }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  rustPlatform,
+  pkg-config,
+  openssl,
+  CoreServices,
+  Security,
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "synapse-bt";
-  version = "1.0";
+  version = "unstable-2023-02-16";
 
   src = fetchFromGitHub {
     owner = "Luminarys";
     repo = "synapse";
-    rev = version;
-    sha256 = "01npv3zwia5d534zdwisd9xfng507adv4qkljf8z0zm0khqqn71a";
+    rev = "2165fe22589d7255e497d196c1d42b4c2ace1408";
+    hash = "sha256-2irXNgEK9BjRuNu3DUMElmf2vIpGzwoFneAEe97GRh4=";
   };
 
-  cargoSha256 = "0sy0vlpkj967g9lyyh7ska8cpw5xh0g04kj071a32idrqc3dcjb1";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-ebqUH01h4B3Aq3apSKpae8ncaFirbrZiDxjiQM9kzg4=";
 
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = [ openssl ]
-    ++ lib.optionals stdenv.isDarwin [ CoreServices Security ];
+  buildInputs =
+    [ openssl ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      CoreServices
+      Security
+    ];
 
   cargoBuildFlags = [ "--all" ];
 

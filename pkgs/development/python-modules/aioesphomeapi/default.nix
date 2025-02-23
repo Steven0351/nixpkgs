@@ -1,49 +1,83 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, mock
-, noiseprotocol
-, protobuf
-, pytest-asyncio
-, pytestCheckHook
-, pythonOlder
-, zeroconf
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pythonOlder,
+
+  # build-system
+  cython,
+  setuptools,
+
+  # dependencies
+  aiohappyeyeballs,
+  async-interrupt,
+  async-timeout,
+  chacha20poly1305-reuseable,
+  cryptography,
+  noiseprotocol,
+  protobuf,
+  zeroconf,
+
+  # tests
+  mock,
+  pytest-asyncio,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "aioesphomeapi";
-  version = "10.6.0";
-  format = "setuptools";
+  version = "29.1.1";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "esphome";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "1z9pybis8yi938i3cgzma4w452ik9vggyyhs3y542zpk4183d7xw";
+    repo = "aioesphomeapi";
+    tag = "v${version}";
+    hash = "sha256-umCjsBn0lS94SArvXXGuOfJ1oXmcVLOlrC35Crik9pA=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [
+    setuptools
+    cython
+  ];
+
+  pythonRelaxDeps = [ "cryptography" ];
+
+  dependencies = [
+    aiohappyeyeballs
+    async-interrupt
+    chacha20poly1305-reuseable
+    cryptography
     noiseprotocol
     protobuf
     zeroconf
-  ];
+  ] ++ lib.optionals (pythonOlder "3.11") [ async-timeout ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     mock
     pytest-asyncio
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [
-    "aioesphomeapi"
+  disabledTestPaths = [
+    # benchmarking requires pytest-codespeed
+    "tests/benchmarks"
   ];
+
+  __darwinAllowLocalNetworking = true;
+
+  pythonImportsCheck = [ "aioesphomeapi" ];
 
   meta = with lib; {
     description = "Python Client for ESPHome native API";
     homepage = "https://github.com/esphome/aioesphomeapi";
+    changelog = "https://github.com/esphome/aioesphomeapi/releases/tag/${src.tag}";
     license = licenses.mit;
-    maintainers = with maintainers; [ fab hexa ];
+    maintainers = with maintainers; [
+      fab
+      hexa
+    ];
   };
 }

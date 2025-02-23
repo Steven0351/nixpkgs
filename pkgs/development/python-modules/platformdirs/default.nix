@@ -1,43 +1,46 @@
-{ lib
-, appdirs
-, buildPythonPackage
-, fetchFromGitHub
-, platformdirs
-, pytest-mock
-, pytestCheckHook
-, pythonOlder
-, setuptools-scm
+{
+  lib,
+  appdirs,
+  buildPythonPackage,
+  fetchFromGitHub,
+  hatch-vcs,
+  hatchling,
+  pytest-mock,
+  pytestCheckHook,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
   pname = "platformdirs";
-  version = "2.4.0";
-  disabled = pythonOlder "3.6";
+  version = "4.3.6";
+  pyproject = true;
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
-    owner = pname;
-    repo = pname;
-    rev = version;
-    sha256 = "sha256-Ox1CVq2M2eddZtpuZx0IfvuOm6RPsAs27WkMdZSeh0E=";
+    owner = "platformdirs";
+    repo = "platformdirs";
+    tag = version;
+    hash = "sha256-Zo1fEqiUbrI3pbVp3ndjV8gd+sbcGgUm1PJhQudmiMQ=";
   };
 
-  SETUPTOOLS_SCM_PRETEND_VERSION = version;
-
-  nativeBuildInputs = [
-    setuptools-scm
+  build-system = [
+    hatchling
+    hatch-vcs
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     appdirs
     pytest-mock
     pytestCheckHook
   ];
 
- pythonImportsCheck = [ "platformdirs" ];
+  pythonImportsCheck = [ "platformdirs" ];
 
   meta = with lib; {
-    description = "Python module for determining appropriate platform-specific directories";
+    description = "Module for determining appropriate platform-specific directories";
     homepage = "https://platformdirs.readthedocs.io/";
+    changelog = "https://github.com/platformdirs/platformdirs/releases/tag/${version}";
     license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };

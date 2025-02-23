@@ -1,54 +1,63 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, pythonOlder
-, dask
-, numpy, toolz # dask[array]
-, numba
-, pandas
-, scikit-learn
-, scipy
-, dask-glm
-, six
-, multipledispatch
-, packaging
-, distributed
-, setuptools-scm
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchFromGitHub,
+  fetchpatch,
+
+  # build-system
+  hatch-vcs,
+  hatchling,
+
+  # dependencies
+  dask-glm,
+  distributed,
+  multipledispatch,
+  numba,
+  numpy,
+  packaging,
+  pandas,
+  scikit-learn,
+  scipy,
+  dask,
+
+  # tests
+  pytest-mock,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
-  version = "2021.11.30";
   pname = "dask-ml";
-  disabled = pythonOlder "3.6"; # >= 3.6
+  version = "2025.1.0";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "4f73306b5ee56e9b41b133697062d0028d30b1ece883ac6b56532fea5bd3e94a";
+  src = fetchFromGitHub {
+    owner = "dask";
+    repo = "dask-ml";
+    tag = "v${version}";
+    hash = "sha256-DHxx0LFuJmGWYuG/WGHj+a5XHAEekBmlHUUb90rl2IY=";
   };
 
-  nativeBuildInputs = [
-    setuptools-scm
+  build-system = [
+    hatch-vcs
+    hatchling
   ];
 
-  propagatedBuildInputs = [
-    dask
-    dask-glm
-    distributed
-    multipledispatch
-    numba
-    numpy
-    packaging
-    pandas
-    scikit-learn
-    scipy
-    six
-    toolz
-  ];
+  dependencies =
+    [
+      dask-glm
+      distributed
+      multipledispatch
+      numba
+      numpy
+      packaging
+      pandas
+      scikit-learn
+      scipy
+    ]
+    ++ dask.optional-dependencies.array
+    ++ dask.optional-dependencies.dataframe;
 
-  # has non-standard build from source, and pypi doesn't include tests
-  doCheck = false;
-
-  # in lieu of proper tests
   pythonImportsCheck = [
     "dask_ml"
     "dask_ml.naive_bayes"
@@ -56,10 +65,27 @@ buildPythonPackage rec {
     "dask_ml.utils"
   ];
 
-  meta = with lib; {
-    homepage = "https://github.com/dask/dask-ml";
+  nativeCheckInputs = [
+    pytest-mock
+    pytestCheckHook
+  ];
+
+  disabledTestPaths = [
+    # AttributeError: module 'numpy' has no attribute 'product'
+    "tests/test_svd.py"
+  ];
+
+  disabledTests = [
+    # AssertionError: Regex pattern did not match.
+    "test_unknown_category_transform_array"
+  ];
+
+  __darwinAllowLocalNetworking = true;
+
+  meta = {
     description = "Scalable Machine Learn with Dask";
-    license = licenses.bsd3;
-    maintainers = [ maintainers.costrouc ];
+    homepage = "https://github.com/dask/dask-ml";
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ GaetanLepage ];
   };
 }

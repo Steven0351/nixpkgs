@@ -20,14 +20,14 @@ stdenv.mkDerivation {
   # Determine version and revision from:
   # https://sourceforge.net/p/netpbm/code/HEAD/log/?path=/advanced
   pname = "netpbm";
-  version = "10.96.2";
+  version = "11.9.2";
 
   outputs = [ "bin" "out" "dev" ];
 
   src = fetchsvn {
     url = "https://svn.code.sf.net/p/netpbm/code/advanced";
-    rev = "4158";
-    sha256 = "NK8GXCvCEnbQJWvVngB5UMOVmfsiyU4Fq0JIY9UNSjo=";
+    rev = "4998";
+    sha256 = "sha256-lpPTvsRNsATmcg3eCGs9rqxeWw5CaNZP2DUU4yCOmyc=";
   };
 
   nativeBuildInputs = [
@@ -87,13 +87,17 @@ stdenv.mkDerivation {
 
     # Fix path to rgb.txt
     echo "RGB_DB_PATH = $out/share/netpbm/misc/rgb.txt" >> config.mk
-  '' + lib.optionalString stdenv.isDarwin ''
+  '' + lib.optionalString stdenv.hostPlatform.isDarwin ''
     echo "LDSHLIB=-dynamiclib -install_name $out/lib/libnetpbm.\$(MAJ).dylib" >> config.mk
     echo "NETPBMLIBTYPE = dylib" >> config.mk
     echo "NETPBMLIBSUFFIX = dylib" >> config.mk
   '' + ''
     runHook postConfigure
   '';
+
+  env = lib.optionalAttrs stdenv.cc.isClang {
+    NIX_CFLAGS_COMPILE = "-Wno-implicit-function-declaration";
+  };
 
   installPhase = ''
     runHook preInstall
@@ -118,7 +122,7 @@ stdenv.mkDerivation {
   passthru.updateScript = ./update.sh;
 
   meta = {
-    homepage = "http://netpbm.sourceforge.net/";
+    homepage = "https://netpbm.sourceforge.net/";
     description = "Toolkit for manipulation of graphic images";
     license = lib.licenses.free; # http://netpbm.svn.code.sourceforge.net/p/netpbm/code/trunk/doc/copyright_summary
     platforms = with lib.platforms; linux ++ darwin;

@@ -1,62 +1,66 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, boto3
-, cryptography
-, eventlet
-, greenlet
-, iana-etc
-, libredirect
-, lxml
-, mock
-, netifaces
-, pastedeploy
-, pbr
-, pyeclib
-, requests
-, setuptools
-, six
-, stestr
-, swiftclient
-, xattr
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  boto3,
+  cryptography,
+  eventlet,
+  greenlet,
+  iana-etc,
+  installShellFiles,
+  libredirect,
+  lxml,
+  mock,
+  pastedeploy,
+  pbr,
+  pyeclib,
+  requests,
+  setuptools,
+  six,
+  stestr,
+  swiftclient,
+  xattr,
 }:
 
 buildPythonPackage rec {
   pname = "swift";
-  version = "2.28.0";
+  version = "2.34.0";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "79a216498a842226f71e9dfbbce4dba4a5718cda9b2be92b6e0aa21df977f70d";
+    hash = "sha256-ZvdWWvPUdZIEadxV0nhqgTXhgJJu+hD1LnYCAP+9gpM=";
   };
 
-  postPatch = ''
-    # files requires boto which is incompatible with python 3.9
-    rm test/functional/s3api/{__init__.py,s3_test_client.py}
-  '';
+  nativeBuildInputs = [ installShellFiles ];
 
-  nativeBuildInputs = [ pbr ];
+  build-system = [
+    pbr
+    setuptools
+  ];
 
-  propagatedBuildInputs = [
+  dependencies = [
     cryptography
     eventlet
     greenlet
     lxml
-    netifaces
     pastedeploy
     pyeclib
     requests
-    setuptools
     six
     xattr
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     boto3
     mock
     stestr
     swiftclient
   ];
+
+  postInstall = ''
+    installManPage doc/manpages/*
+  '';
 
   # a lot of tests currently fail while establishing a connection
   doCheck = false;

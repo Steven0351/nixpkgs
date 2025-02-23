@@ -1,36 +1,61 @@
-{ lib
-, aiohttp
-, buildPythonPackage
-, fetchPypi
-, geopy
-, pythonOlder
+{
+  lib,
+  aiohttp,
+  aioresponses,
+  buildPythonPackage,
+  fetchFromGitHub,
+  freezegun,
+  mock,
+  geopy,
+  pytest-asyncio,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "pyipma";
-  version = "2.1.5";
-  disabled = pythonOlder "3.7";
+  version = "3.0.9";
+  pyproject = true;
 
-  # Request for GitHub releases, https://github.com/dgomes/pyipma/issues/10
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "0hq5dasqpsn64x2sf6a28hdmysygmcdq4in6s08w97jfvwc6xmym";
+  disabled = pythonOlder "3.11";
+
+  src = fetchFromGitHub {
+    owner = "dgomes";
+    repo = "pyipma";
+    tag = version;
+    hash = "sha256-1EUOkNwNoZQEetJ5v6httas0S0a3bHLv/lDRXQsT/Ds=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ setuptools ];
+
+  dependencies = [
     aiohttp
     geopy
   ];
 
-  # Project has no tests included in the PyPI releases
-  doCheck = false;
+  nativeCheckInputs = [
+    aioresponses
+    freezegun
+    mock
+    pytest-asyncio
+    pytestCheckHook
+  ];
 
   pythonImportsCheck = [ "pyipma" ];
 
+  disabledTestPaths = [
+    # Tests require network access
+    "tests/test_auxiliar.py"
+    "tests/test_location.py"
+    "tests/test_sea_forecast.py"
+  ];
+
   meta = with lib; {
-    description = "Python library to retrieve information from Instituto Português do Mar e Atmosfera";
+    description = "Library to retrieve information from Instituto Português do Mar e Atmosfera";
     homepage = "https://github.com/dgomes/pyipma";
-    license = with licenses; [ mit ];
+    changelog = "https://github.com/dgomes/pyipma/releases/tag/${src.tag}";
+    license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };
 }

@@ -1,59 +1,75 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, curtsies
-, cwcwidth
-, greenlet
-, jedi
-, pygments
-, pytestCheckHook
-, pyperclip
-, pyxdg
-, requests
-, substituteAll
-, typing-extensions
-, urwid
-, watchdog
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  curtsies,
+  cwcwidth,
+  greenlet,
+  jedi,
+  pygments,
+  pytestCheckHook,
+  pyperclip,
+  pyxdg,
+  requests,
+  setuptools,
+  urwid,
+  watchdog,
 }:
 
 buildPythonPackage rec {
   pname = "bpython";
-  version = "0.22.1";
+  version = "0.25";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "1fb1e0a52332579fc4e3dcf75e21796af67aae2be460179ecfcce9530a49a200";
+  src = fetchFromGitHub {
+    owner = "bpython";
+    repo = "bpython";
+    tag = version;
+    hash = "sha256-p5+IQiHNRRazqr+WRdx3Yw+ImG25tdZGLXvMf7woD9w=";
   };
 
-  propagatedBuildInputs = [
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace-fail 'version = "unknown"' 'version = "${version}"'
+  '';
+
+  build-system = [ setuptools ];
+
+  dependencies = [
     curtsies
     cwcwidth
     greenlet
-    jedi
     pygments
-    pyperclip
     pyxdg
     requests
-    typing-extensions
-    urwid
-    watchdog
   ];
+
+  optional-dependencies = {
+    clipboard = [ pyperclip ];
+    jedi = [ jedi ];
+    urwid = [ urwid ];
+    watch = [ watchdog ];
+  };
 
   postInstall = ''
     substituteInPlace "$out/share/applications/org.bpython-interpreter.bpython.desktop" \
-      --replace "Exec=/usr/bin/bpython" "Exec=$out/bin/bpython"
+      --replace "Exec=/usr/bin/bpython" "Exec=bpython"
   '';
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytestCheckHook
-  ];
+  ] ++ lib.flatten (lib.attrValues optional-dependencies);
 
   pythonImportsCheck = [ "bpython" ];
 
   meta = with lib; {
-    description = "A fancy curses interface to the Python interactive interpreter";
+    changelog = "https://github.com/bpython/bpython/blob/${src.tag}/CHANGELOG.rst";
+    description = "Fancy curses interface to the Python interactive interpreter";
     homepage = "https://bpython-interpreter.org/";
     license = licenses.mit;
-    maintainers = with maintainers; [ flokli dotlambda ];
+    maintainers = with maintainers; [
+      flokli
+      dotlambda
+    ];
   };
 }

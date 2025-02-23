@@ -1,39 +1,47 @@
-{ lib
-, stdenv
-, rustPlatform
-, fetchFromGitHub
-, pkg-config
-, openssl
-, Security
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  fetchFromGitHub,
+  pkg-config,
+  openssl,
+  Security,
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "drill";
-  version = "0.7.0";
+  version = "0.8.3";
 
   src = fetchFromGitHub {
     owner = "fcsonline";
     repo = pname;
     rev = version;
-    sha256 = "07zz0dj0wjwrc1rmayz7s8kpcv03i0ygl4vfwsam72qd4nf6v538";
+    sha256 = "sha256-4y5gpkQB0U6Yq92O6DDD5eq/i/36l/VfeyiE//pcZOk=";
   };
 
-  cargoSha256 = "04gj9gaysjcm2d81ds2raak847hr8w84jgfdwqd51wi8xm32w5jf";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-wrfQtJHhSG53tV3R4u/Ri4iv1VoAmuT3xleAQEJOIzE=";
 
-  nativeBuildInputs = lib.optionals stdenv.isLinux [
+  nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [
     pkg-config
   ];
 
-  buildInputs = lib.optionals stdenv.isLinux [
-    openssl
-  ] ++ lib.optionals stdenv.isDarwin [
-    Security
-  ];
+  OPENSSL_LIB_DIR = "${lib.getLib openssl}/lib";
+  OPENSSL_DIR = "${lib.getDev openssl}";
+
+  buildInputs =
+    lib.optionals stdenv.hostPlatform.isLinux [
+      openssl
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      Security
+    ];
 
   meta = with lib; {
     description = "HTTP load testing application inspired by Ansible syntax";
     homepage = "https://github.com/fcsonline/drill";
     license = licenses.gpl3Only;
     maintainers = with maintainers; [ Br1ght0ne ];
+    mainProgram = "drill";
   };
 }

@@ -1,73 +1,84 @@
-{ lib
-, buildPythonApplication
-, fetchPypi
-, pythonOlder
-, mock
-, lxml
-, relatorio
-, genshi
-, python-dateutil
-, polib
-, python-sql
-, werkzeug
-, wrapt
-, passlib
-, pillow
-, bcrypt
-, pydot
-, python-Levenshtein
-, simplejson
-, html2text
-, psycopg2
-, withPostgresql ? true
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+  setuptools,
+  defusedxml,
+  lxml,
+  relatorio,
+  genshi,
+  python-dateutil,
+  polib,
+  python-sql,
+  werkzeug,
+  passlib,
+  pydot,
+  levenshtein,
+  html2text,
+  weasyprint,
+  gevent,
+  pillow,
+  withPostgresql ? true,
+  psycopg2,
+  unittestCheckHook,
 }:
 
-buildPythonApplication rec {
+buildPythonPackage rec {
   pname = "trytond";
-  version = "6.2.1";
-  format = "setuptools";
+  version = "7.4.4";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "418f16c45b7130555447af901639b92bb188d39f46ce7fe4dfcd941c5959ed7e";
+    hash = "sha256-rmwen1XmH7NkUJpgobVPkIGuDbwjzuWKNvOAj8Mwiq8=";
   };
 
-  # Tells the tests which database to use
-  DB_NAME = ":memory:";
+  build-system = [ setuptools ];
 
-  buildInputs = [
-    mock
-  ];
+  dependencies =
+    [
+      defusedxml
+      lxml
+      relatorio
+      genshi
+      python-dateutil
+      polib
+      python-sql
+      werkzeug
+      passlib
 
-  propagatedBuildInputs = [
-    lxml
-    relatorio
-    genshi
-    python-dateutil
-    polib
-    python-sql
-    werkzeug
-    wrapt
-    pillow
-    passlib
+      # extra dependencies
+      pydot
+      levenshtein
+      html2text
+      weasyprint
+      gevent
+      pillow
+    ]
+    ++ relatorio.optional-dependencies.fodt
+    ++ passlib.optional-dependencies.bcrypt
+    ++ passlib.optional-dependencies.argon2
+    ++ lib.optional withPostgresql psycopg2;
 
-    # extra dependencies
-    bcrypt
-    pydot
-    python-Levenshtein
-    simplejson
-    html2text
-  ] ++ lib.optional withPostgresql psycopg2;
+  nativeCheckInputs = [ unittestCheckHook ];
 
-  # If unset, trytond will try to mkdir /homeless-shelter
   preCheck = ''
     export HOME=$(mktemp -d)
+    export TRYTOND_DATABASE_URI="sqlite://"
+    export DB_NAME=":memory:";
   '';
 
+  unittestFlagsArray = [
+    "-s"
+    "trytond.tests"
+  ];
+
   meta = with lib; {
-    description = "The server of the Tryton application platform";
+    description = "Server of the Tryton application platform";
     longDescription = ''
       The server for Tryton, a three-tier high-level general purpose
       application platform under the license GPL-3 written in Python and using
@@ -77,7 +88,12 @@ buildPythonApplication rec {
       modularity, scalability and security.
     '';
     homepage = "http://www.tryton.org/";
+    changelog = "https://foss.heptapod.net/tryton/tryton/-/blob/trytond-${version}/trytond/CHANGELOG?ref_type=tags";
     license = licenses.gpl3Plus;
-    maintainers = with maintainers; [ udono johbo ];
+    broken = stdenv.hostPlatform.isDarwin;
+    maintainers = with maintainers; [
+      udono
+      johbo
+    ];
   };
 }

@@ -1,50 +1,70 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, fetchpatch
-, numpy
-, scipy
-, cython
-, networkx
-, joblib
-, pandas
-, nose
-, pyyaml
-}:
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchFromGitHub,
 
+  # build-system
+  setuptools,
+
+  # dependencies
+  apricot-select,
+  networkx,
+  numpy,
+  scikit-learn,
+  scipy,
+  torch,
+
+  # tests
+  pytestCheckHook,
+}:
 
 buildPythonPackage rec {
   pname = "pomegranate";
-  version = "0.13.5";
+  version = "1.1.0";
+  pyproject = true;
 
   src = fetchFromGitHub {
     repo = pname;
     owner = "jmschrei";
-    rev = "v${version}";
-    sha256 = "1hbxchp3daykkf1fa79a9mh34p78bygqcf1nv4qwkql3gw0pd6l7";
+    tag = "v${version}";
+    hash = "sha256-p2Gn0FXnsAHvRUeAqx4M1KH0+XvDl3fmUZZ7MiMvPSs=";
   };
 
-  patches = lib.optionals (lib.versionOlder version "13.6") [
-    # Fix compatibility with recent joblib release, will be part of the next
-    # pomegranate release after 0.13.5
-    (fetchpatch {
-      url = "https://github.com/jmschrei/pomegranate/commit/42d14bebc44ffd4a778b2a6430aa845591b7c3b7.patch";
-      sha256 = "0f9cx0fj9xkr3hch7jyrn76zjypilh5bqw734caaw6g2m49lvbff";
-    })
-  ] ++ [
-    # Likely an upstream test bug and not a real problem:
-    #   https://github.com/jmschrei/pomegranate/issues/939
-    ./disable-failed-on-nextworkx-2.6.patch
-  ] ;
+  build-system = [ setuptools ];
 
-  propagatedBuildInputs = [ numpy scipy cython networkx joblib pyyaml ];
+  dependencies = [
+    apricot-select
+    networkx
+    numpy
+    scikit-learn
+    scipy
+    torch
+  ];
 
-  checkInputs = [ pandas nose ];  # as of 0.13.5, it depends explicitly on nose, rather than pytest.
+  pythonImportsCheck = [ "pomegranate" ];
 
-  meta = with lib; {
+  nativeCheckInputs = [
+    pytestCheckHook
+  ];
+
+  pytestFlagsArray = lib.optionals (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isx86_64) [
+    # AssertionError: Arrays are not almost equal to 6 decimals
+    "--deselect=tests/distributions/test_normal_full.py::test_fit"
+    "--deselect=tests/distributions/test_normal_full.py::test_from_summaries"
+    "--deselect=tests/distributions/test_normal_full.py::test_serialization"
+  ];
+
+  disabledTests = [
+    # AssertionError: Arrays are not almost equal to 6 decimals
+    "test_sample"
+  ];
+
+  meta = {
     description = "Probabilistic and graphical models for Python, implemented in cython for speed";
     homepage = "https://github.com/jmschrei/pomegranate";
-    license = licenses.mit;
-    maintainers = with maintainers; [ rybern ];
+    changelog = "https://github.com/jmschrei/pomegranate/releases/tag/v${version}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ rybern ];
   };
 }

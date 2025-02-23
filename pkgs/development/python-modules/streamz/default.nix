@@ -1,83 +1,76 @@
-{ lib
-, buildPythonPackage
-, confluent-kafka
-, distributed
-, fetchPypi
-, flaky
-, graphviz
-, networkx
-, pytest-asyncio
-, pytestCheckHook
-, pythonOlder
-, requests
-, six
-, toolz
-, tornado
-, zict
-, fetchpatch
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools,
+
+  # dependencies
+  six,
+  toolz,
+  tornado,
+  zict,
+
+  # tests
+  dask,
+  distributed,
+  flaky,
+  pandas,
+  pyarrow,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "streamz";
-  version = "0.6.3";
-  format = "setuptools";
+  version = "0.6.4";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
-
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-0wZ1ldLFRAIL9R+gLfwsFbL+gvdORAkYWNjnDmeafm8=";
+  src = fetchFromGitHub {
+    owner = "python-streamz";
+    repo = "streamz";
+    tag = version;
+    hash = "sha256-lSb3gl+TSIzz4BZzxH8zXu74HvzSntOAoVQUUJKIEvA=";
   };
 
-  patches = [
-    # remove with next bump
-    (fetchpatch {
-      name = "fix-tests-against-distributed-2021.10.0.patch";
-      url = "https://github.com/python-streamz/streamz/commit/5bd3bc4d305ff40c740bc2550c8491be9162778a.patch";
-      sha256 = "1xzxcbf7yninkyizrwm3ahqk6ij2fmh0454iqjx2n7mmzx3sazx7";
-      includes = ["streamz/tests/test_dask.py"];
-    })
-  ];
+  build-system = [ setuptools ];
 
-  propagatedBuildInputs = [
-    networkx
+  dependencies = [
     six
     toolz
     tornado
     zict
   ];
 
-  checkInputs = [
-    confluent-kafka
+  nativeCheckInputs = [
+    dask
     distributed
     flaky
-    graphviz
-    pytest-asyncio
+    pandas
+    pyarrow
     pytestCheckHook
-    requests
   ];
 
-  pythonImportsCheck = [
-    "streamz"
-  ];
+  pythonImportsCheck = [ "streamz" ];
 
   disabledTests = [
-    # test_tcp_async fails on sandbox build
-    "test_tcp_async"
-    "test_tcp"
-    "test_partition_timeout"
-    # flaky
-    "test_from_iterable_backpressure"
-  ];
-  disabledTestPaths = [
-    # disable kafka tests
-    "streamz/tests/test_kafka.py"
+    # Error with distutils version: fixture 'cleanup' not found
+    "test_separate_thread_without_time"
+    "test_await_syntax"
+    "test_partition_then_scatter_sync"
+    "test_sync"
+    "test_sync_2"
+
+    # Tests are flaky
+    "test_buffer"
   ];
 
-  meta = with lib; {
+  __darwinAllowLocalNetworking = true;
+
+  meta = {
     description = "Pipelines to manage continuous streams of data";
     homepage = "https://github.com/python-streamz/streamz";
-    license = licenses.bsd3;
-    maintainers = with maintainers; [ costrouc ];
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ GaetanLepage ];
   };
 }

@@ -1,33 +1,37 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, pytestCheckHook
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  pytestCheckHook,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
   pname = "multimethod";
-  version = "1.6";
+  version = "2.0";
   format = "pyproject";
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "coady";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "09vrxzv8q0lqsbh6d83wjdd29ja66rj31y7wmyha14jk603fd9k0";
+    tag = "v${version}";
+    hash = "sha256-/91re2K+nVKULJOjDoimpOukQlLlsMS9blkVQWit2eI=";
   };
 
-  checkInputs = [
-    pytestCheckHook
-  ];
+  nativeBuildInputs = [ setuptools ];
 
-  pythonImportsCheck = [
-    "multimethod"
-  ];
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  pythonImportsCheck = [ "multimethod" ];
 
   meta = with lib; {
     description = "Multiple argument dispatching";
-    homepage = "https://github.com/coady/multimethod";
+    homepage = "https://coady.github.io/multimethod/";
+    changelog = "https://github.com/coady/multimethod/tree/${src.tag}#changes";
     license = licenses.asl20;
-    maintainers = teams.determinatesystems.members;
+    maintainers = [ ];
   };
 }

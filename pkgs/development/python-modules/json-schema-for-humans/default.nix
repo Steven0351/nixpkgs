@@ -1,41 +1,47 @@
-{ lib
-, beautifulsoup4
-, buildPythonPackage
-, click
-, dataclasses
-, dataclasses-json
-, fetchFromGitHub
-, htmlmin
-, jinja2
-, markdown2
-, poetry-core
-, pygments
-, pytestCheckHook
-, pythonOlder
-, pytz
-, pyyaml
-, requests
+{
+  lib,
+  beautifulsoup4,
+  buildPythonPackage,
+  click,
+  dataclasses-json,
+  fetchFromGitHub,
+  htmlmin,
+  jinja2,
+  markdown2,
+  poetry-core,
+  pygments,
+  pytestCheckHook,
+  pythonOlder,
+  pytz,
+  pyyaml,
+  requests,
 }:
 
 buildPythonPackage rec {
   pname = "json-schema-for-humans";
-  version = "0.39.3";
-  format = "pyproject";
+  version = "1.3.4";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "coveooss";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-rg50AE30R1OErtOKppnkhg8MTuhEY6gdBgc7ipEkONA=";
+    repo = "json-schema-for-humans";
+    tag = "v${version}";
+    hash = "sha256-+IvLFejEcu477BNY8F0h4WLqe18f6i2+gXyx/mRHzpI=";
   };
 
-  nativeBuildInputs = [
-    poetry-core
-  ];
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail 'markdown2 = "^2.5.0"' 'markdown2 = "^2.4.1"'
+  '';
 
-  propagatedBuildInputs = [
+  pythonRelaxDeps = [ "dataclasses-json" ];
+
+  build-system = [ poetry-core ];
+
+
+  dependencies = [
     click
     dataclasses-json
     htmlmin
@@ -45,11 +51,9 @@ buildPythonPackage rec {
     pytz
     pyyaml
     requests
-  ] ++ lib.optionals (pythonOlder "3.7") [
-    dataclasses
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     beautifulsoup4
     pytestCheckHook
   ];
@@ -61,14 +65,14 @@ buildPythonPackage rec {
     "TestMdGenerate"
   ];
 
-  pythonImportsCheck = [
-    "json_schema_for_humans"
-  ];
+  pythonImportsCheck = [ "json_schema_for_humans" ];
 
   meta = with lib; {
     description = "Quickly generate HTML documentation from a JSON schema";
     homepage = "https://github.com/coveooss/json-schema-for-humans";
+    changelog = "https://github.com/coveooss/json-schema-for-humans/releases/tag/${src.tag}";
     license = licenses.asl20;
     maintainers = with maintainers; [ astro ];
+    mainProgram = "generate-schema-doc";
   };
 }

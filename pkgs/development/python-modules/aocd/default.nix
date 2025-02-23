@@ -1,58 +1,79 @@
-{ lib, stdenv, buildPythonPackage, fetchFromGitHub, requests
-, pytestCheckHook, tzlocal, pytest-mock, pytest-freezegun, pytest-raisin
-, pytest-socket, requests-mock, pebble, python-dateutil, termcolor
-, beautifulsoup4, setuptools
+{
+  lib,
+  aocd-example-parser,
+  beautifulsoup4,
+  buildPythonPackage,
+  fetchFromGitHub,
+  numpy,
+  pebble,
+  pook,
+  pytest-freezegun,
+  pytest-mock,
+  pytest-cov-stub,
+  pytest-raisin,
+  pytest-socket,
+  pytestCheckHook,
+  python-dateutil,
+  pythonOlder,
+  requests,
+  requests-mock,
+  rich,
+  setuptools,
+  termcolor,
+  tzlocal,
 }:
 
 buildPythonPackage rec {
   pname = "aocd";
-  version = "1.1.1";
+  version = "2.1.0";
+  pyproject = true;
+
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
     owner = "wimglenn";
     repo = "advent-of-code-data";
-    rev = "v${version}";
-    sha256 = "sha256-wdg6XUkjnAc9yAP7DP0UT6SlQHfj/ymhqzIGNM3fco4=";
+    tag = "v${version}";
+    hash = "sha256-xR9CfyOUsKSSA/1zYi6kCK3oAaX6Kd625mKMWI+ZFMA=";
   };
 
-  propagatedBuildInputs = [
-    python-dateutil
-    requests
-    termcolor
+  build-system = [ setuptools ];
+
+  dependencies = [
+    aocd-example-parser
     beautifulsoup4
     pebble
+    python-dateutil
+    requests
+    rich # for example parser aoce. must either be here or checkInputs
+    termcolor
     tzlocal
-    setuptools
   ];
 
-  # Too many failing tests
-  preCheck = "rm pytest.ini";
-
-  disabledTests = [
-    "test_results"
-    "test_results_xmas"
-    "test_run_error"
-    "test_run_and_autosubmit"
-    "test_run_and_no_autosubmit"
-    "test_load_input_from_file"
-  ];
-
-  checkInputs = [
-    pytestCheckHook
-    pytest-mock
+  nativeCheckInputs = [
+    numpy
+    pook
     pytest-freezegun
+    pytest-mock
     pytest-raisin
     pytest-socket
+    pytestCheckHook
+    pytest-cov-stub
     requests-mock
+  ];
+
+  pytestFlagsArray = [
+    "tests/"
   ];
 
   pythonImportsCheck = [ "aocd" ];
 
-  meta = with lib; {
-    homepage = "https://github.com/wimglenn/advent-of-code-data";
+  meta = {
     description = "Get your Advent of Code data with a single import statement";
-    license = licenses.mit;
-    maintainers = with maintainers; [ aadibajpai ];
-    platforms = platforms.unix;
+    homepage = "https://github.com/wimglenn/advent-of-code-data";
+    changelog = "https://github.com/wimglenn/advent-of-code-data/releases/tag/${src.tag}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ aadibajpai ];
+    platforms = lib.platforms.unix;
   };
 }

@@ -1,42 +1,152 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, mupdf
-, swig
-, freetype
-, harfbuzz
-, openjpeg
-, jbig2dec
-, libjpeg_turbo
-, gumbo
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  pythonOlder,
+  fetchFromGitHub,
+  fetchpatch,
+  python,
+
+  # build-system
+  libclang,
+  psutil,
+  setuptools,
+  swig,
+
+  # native dependencies
+  freetype,
+  harfbuzz,
+  openjpeg,
+  jbig2dec,
+  libjpeg_turbo,
+  gumbo,
+
+  # dependencies
+  mupdf,
+
+  # tests
+  pytestCheckHook,
+  fonttools,
+  pillow,
+  pymupdf-fonts,
 }:
 
+let
+  # PyMuPDF needs the C++ bindings generated
+  mupdf-cxx = mupdf.override {
+    enableOcr = true;
+    enableCxx = true;
+    enablePython = true;
+    python3 = python;
+  };
+in
 buildPythonPackage rec {
   pname = "pymupdf";
-  version = "1.18.17";
+  version = "1.25.2";
+  pyproject = true;
 
-  src = fetchPypi {
-    pname = "PyMuPDF";
-    inherit version;
-    sha256 = "fa39ee5e91eae77818e07b6bb7e0cb0b402ad88e39a74b08626ce1c2150c5414";
+  disabled = pythonOlder "3.7";
+
+  src = fetchFromGitHub {
+    owner = "pymupdf";
+    repo = "PyMuPDF";
+    tag = version;
+    hash = "sha256-6XbHQ8PE9IF0kngUhYkFSGjwgt+r+19v+PeDAQin2Ko=";
   };
 
+  patches = [
+    # Fix build against mupdf-1.25.3:
+    #   https://github.com/pymupdf/PyMuPDF/pull/4248
+    (fetchpatch {
+      name = "mupdf-1.25.3.patch";
+      url = "https://github.com/pymupdf/PyMuPDF/commit/f42ef85058fee087d3f5e565f34a7657aad11240.patch";
+      hash = "sha256-X5JF8nPLj4uubdEdvUJ5aEf0yZkW+ks99pzua0vCrZc=";
+    })
+  ];
+
+  # swig is not wrapped as Python package
+  # libclang calls itself just clang in wheel metadata
   postPatch = ''
     substituteInPlace setup.py \
-        --replace '/usr/include/mupdf' ${mupdf.dev}/include/mupdf
+      --replace-fail "ret.append( 'swig')" "pass" \
   '';
-  nativeBuildInputs = [ swig ];
-  buildInputs = [ mupdf freetype harfbuzz openjpeg jbig2dec libjpeg_turbo gumbo ];
 
-  doCheck = false;
+  nativeBuildInputs = [
+    libclang
+    swig
+    psutil
+    setuptools
+  ];
 
-  pythonImportsCheck = [ "fitz" ];
+  buildInputs = [
+    freetype
+    harfbuzz
+    openjpeg
+    jbig2dec
+    libjpeg_turbo
+    gumbo
+  ];
 
-  meta = with lib; {
-    description = "Python bindings for MuPDF's rendering library.";
+  propagatedBuildInputs = [ mupdf-cxx ];
+
+  env = {
+    # force using system MuPDF (must be defined in environment and empty)
+    PYMUPDF_SETUP_MUPDF_BUILD = "";
+    # Setup the name of the package away from the default 'libclang'
+    PYMUPDF_SETUP_LIBCLANG = "clang";
+    # provide MuPDF paths
+    PYMUPDF_MUPDF_LIB = "${lib.getLib mupdf-cxx}/lib";
+    PYMUPDF_MUPDF_INCLUDE = "${lib.getDev mupdf-cxx}/include";
+  };
+
+  # TODO: manually add mupdf rpath until upstream fixes it
+  postInstall = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    for lib in */*.so $out/${python.sitePackages}/*/*.so; do
+      install_name_tool -add_rpath ${lib.getLib mupdf-cxx}/lib "$lib"
+    done
+  '';
+
+  nativeCheckInputs = [
+    pytestCheckHook
+  ];
+
+  checkInputs = [
+    fonttools
+    pillow
+    pymupdf-fonts
+  ];
+
+  disabledTests = [
+    # Do not lint code
+    "test_codespell"
+    "test_pylint"
+    "test_flake8"
+    # Upstream recommends disabling these when not using bundled MuPDF build
+    "test_color_count"
+    "test_3050"
+    "test_textbox3"
+  ];
+
+  pythonImportsCheck = [
+    "pymupdf"
+    "fitz"
+  ];
+
+  preCheck = ''
+    export PATH="$out/bin:$PATH";
+
+    # Fixes at least one test; see:
+    # * <https://github.com/pymupdf/PyMuPDF/blob/refs/tags/1.25.1/scripts/sysinstall.py#L390>
+    # * <https://github.com/pymupdf/PyMuPDF/blob/refs/tags/1.25.1/tests/test_pixmap.py#L425-L428>
+    export PYMUPDF_SYSINSTALL_TEST=1
+  '';
+
+  meta = {
+    description = "Python bindings for MuPDF's rendering library";
     homepage = "https://github.com/pymupdf/PyMuPDF";
-    maintainers = with maintainers; [ teto ];
-    license = licenses.agpl3Only;
-    platforms = platforms.linux;
+    changelog = "https://github.com/pymupdf/PyMuPDF/releases/tag/${src.tag}";
+    license = lib.licenses.agpl3Only;
+    maintainers = with lib.maintainers; [ teto ];
+    platforms = lib.platforms.unix;
   };
 }

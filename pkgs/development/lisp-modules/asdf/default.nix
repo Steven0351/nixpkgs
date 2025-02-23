@@ -1,4 +1,11 @@
-{ lib, stdenv, fetchurl, texinfo, texLive, perl }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  texinfo,
+  texLive,
+  perl,
+}:
 
 stdenv.mkDerivation rec {
   pname = "asdf";
@@ -9,7 +16,8 @@ stdenv.mkDerivation rec {
     sha256 = "sha256-/k7cmN0ymZUgpP4K+IWfhq85TkzfPjTR4QdUgV9n1x4=";
   };
 
-  buildInputs = [
+  strictDeps = true;
+  nativeBuildInputs = [
     texinfo
     texLive
     perl

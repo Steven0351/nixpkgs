@@ -1,24 +1,27 @@
-{ lib, stdenv
-, fetchFromGitHub
-, fetchpatch
-, gettext
-, autoreconfHook
-, gmp
-, mpfr
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  pkg-config,
+  gettext,
+  autoreconfHook,
+  gmp,
+  mpfr,
 }:
 
 stdenv.mkDerivation rec {
   pname = "fplll";
-  version = "5.3.2";
+  version = "5.5.0";
 
   src = fetchFromGitHub {
     owner = "fplll";
     repo = "fplll";
     rev = version;
-    sha256 = "00iyz218ywspizjiimrjdcqvdqmrsb2367zyy3vkmypnf9i9l680";
+    sha256 = "sha256-WvjXaCnUMioSmLlWmLV673mhRjnF+8DU9MqgUmBgaFQ=";
   };
 
   nativeBuildInputs = [
+    pkg-config
     gettext
     autoreconfHook
   ];

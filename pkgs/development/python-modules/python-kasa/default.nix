@@ -1,64 +1,75 @@
-{ lib
-, asyncclick
-, buildPythonPackage
-, fetchFromGitHub
-, fetchpatch
-, importlib-metadata
-, poetry-core
-, pytest-asyncio
-, pytest-mock
-, pytestCheckHook
-, pythonOlder
-, voluptuous
+{
+  lib,
+  aiohttp,
+  asyncclick,
+  buildPythonPackage,
+  cryptography,
+  fetchFromGitHub,
+  hatchling,
+  kasa-crypt,
+  mashumaro,
+  orjson,
+  ptpython,
+  pytest-asyncio,
+  pytest-freezer,
+  pytest-mock,
+  pytest-socket,
+  pytest-xdist,
+  pytestCheckHook,
+  pythonOlder,
+  rich,
+  voluptuous,
 }:
 
 buildPythonPackage rec {
   pname = "python-kasa";
-  version = "0.4.0";
-  format = "pyproject";
+  version = "0.10.2";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.9";
 
   src = fetchFromGitHub {
-    owner = pname;
-    repo = pname;
-    rev = version;
-    sha256 = "08blmz5kg826l08pf6yrvl8gc8iz3hfb6wsfqih606dal08kdhdi";
+    owner = "python-kasa";
+    repo = "python-kasa";
+    tag = version;
+    hash = "sha256-OIkqNGTnIPoHYrE5NhAxSsRCTyMGvNADvIg28EuKsEw=";
   };
 
-  nativeBuildInputs = [
-    poetry-core
-  ];
+  build-system = [ hatchling ];
 
-  propagatedBuildInputs = [
+  dependencies = [
+    aiohttp
     asyncclick
-    importlib-metadata
+    cryptography
+    mashumaro
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
     pytest-asyncio
+    pytest-freezer
     pytest-mock
+    pytest-socket
+    pytest-xdist
     pytestCheckHook
     voluptuous
   ];
 
-  patches = [
-    # Switch to poetry-core, https://github.com/python-kasa/python-kasa/pull/226
-    (fetchpatch {
-      name = "switch-to-poetry-core.patch";
-      url = "https://github.com/python-kasa/python-kasa/commit/05c2a4a7dedbd60038e177b4d3f5ac5798544d11.patch";
-      sha256 = "0cla11yqx88wj2s50s3xxxhv4nz4h3wd9pi12v79778hzdlg58rr";
-    })
-  ];
+  optional-dependencies = {
+    shell = [
+      ptpython
+      rich
+    ];
+    speedups = [
+      kasa-crypt
+      orjson
+    ];
+  };
 
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace 'asyncclick = "^7"' 'asyncclick = "*"'
-  '';
+  pytestFlagsArray = [ "--asyncio-mode=auto" ];
 
   disabledTestPaths = [
     # Skip the examples tests
-    "kasa/tests/test_readme_examples.py"
+    "tests/test_readme_examples.py"
   ];
 
   pythonImportsCheck = [ "kasa" ];
@@ -66,7 +77,9 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python API for TP-Link Kasa Smarthome products";
     homepage = "https://python-kasa.readthedocs.io/";
+    changelog = "https://github.com/python-kasa/python-kasa/blob/${version}/CHANGELOG.md";
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ fab ];
+    mainProgram = "kasa";
   };
 }

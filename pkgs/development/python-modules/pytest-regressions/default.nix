@@ -1,50 +1,75 @@
-{ lib
-, buildPythonPackage
-, fetchpatch
-, fetchPypi
-, pythonOlder
-, matplotlib
-, numpy
-, pandas
-, pillow
-, pytest
-, pytest-datadir
-, pytestCheckHook
-, pyyaml
-, setuptools-scm
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pythonOlder,
+  matplotlib,
+  numpy,
+  pandas,
+  pillow,
+  pytest,
+  pytest-datadir,
+  pytestCheckHook,
+  pyyaml,
+  setuptools-scm,
 }:
 
 buildPythonPackage rec {
   pname = "pytest-regressions";
-  version = "2.2.0";
-  format = "setuptools";
+  version = "2.7.0";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.9";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "15a71f77cb266dd4ca94331abe4c339ad056b2b2175e47442711c98cf6d65716";
+  src = fetchFromGitHub {
+    owner = "ESSS";
+    repo = "pytest-regressions";
+    tag = "v${version}";
+    hash = "sha256-w9uwJJtikbjUtjpJJ3dEZ1zU0KbdyLaDuJWJr45WpCg=";
   };
 
-  patches = [
-    # Make pytest-regressions compatible with NumPy 1.20.
-    # Should be part of the next release.
-    (fetchpatch {
-      url = "https://github.com/ESSS/pytest-regressions/commit/ffad2c7fd1d110f420f4e3ca3d39d90cae18a972.patch";
-      sha256 = "sha256-bUna7MnMV6u9oEaZMsFnr4gE28rz/c0O2+Hyk291+l0=";
-    })
+  build-system = [ setuptools-scm ];
+
+  buildInputs = [ pytest ];
+
+  dependencies = [
+    pytest-datadir
+    pyyaml
   ];
 
-  nativeBuildInputs = [ setuptools-scm ];
-  buildInputs = [ pytest ];
-  propagatedBuildInputs = [ numpy pandas pillow pytest-datadir pyyaml ];
+  optional-dependencies = {
+    dataframe = [
+      pandas
+      numpy
+    ];
+    image = [
+      numpy
+      pillow
+    ];
+    num = [
+      numpy
+      pandas
+    ];
+  };
 
-  SETUPTOOLS_SCM_PRETEND_VERSION = version;
+  nativeCheckInputs = [
+    matplotlib
+    pandas
+    pytestCheckHook
+  ] ++ lib.flatten (lib.attrValues optional-dependencies);
 
-  checkInputs = [ pytestCheckHook matplotlib ];
-  pythonImportsCheck = [ "pytest_regressions" "pytest_regressions.plugin" ];
+  pytestFlagsArray = [
+    "-W"
+    "ignore::DeprecationWarning"
+  ];
+
+  pythonImportsCheck = [
+    "pytest_regressions"
+    "pytest_regressions.plugin"
+  ];
 
   meta = with lib; {
+    changelog = "https://github.com/ESSS/pytest-regressions/blob/${src.tag}/CHANGELOG.rst";
     description = "Pytest fixtures to write regression tests";
     longDescription = ''
       pytest-regressions makes it simple to test general data, images,
@@ -54,6 +79,6 @@ buildPythonPackage rec {
     '';
     homepage = "https://github.com/ESSS/pytest-regressions";
     license = licenses.mit;
-    maintainers = with maintainers; [ AluisioASG ];
+    maintainers = [ ];
   };
 }

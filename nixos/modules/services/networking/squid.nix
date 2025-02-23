@@ -6,8 +6,19 @@ let
 
   cfg = config.services.squid;
 
+  configWriter =
+    if cfg.validateConfig then
+      (
+        content:
+        pkgs.writers.makeScriptWriter {
+          check = "${cfg.package}/bin/squid -k parse -f";
+          interpreter = "${cfg.package}/bin/squid";
+        } "squid.conf" content
+      )
+    else
+      (content: pkgs.writeText "squid.conf" content);
 
-  squidConfig = pkgs.writeText "squid.conf"
+  squidConfig = configWriter
     (if cfg.configText != null then cfg.configText else
     ''
     #
@@ -81,7 +92,9 @@ let
     http_access deny all
 
     # Squid normally listens to port 3128
-    http_port ${toString cfg.proxyPort}
+    http_port ${
+      optionalString (cfg.proxyAddress != null) "${cfg.proxyAddress}:"
+    }${toString cfg.proxyPort}
 
     # Leave coredumps in the first cache dir
     coredump_dir /var/cache/squid
@@ -107,6 +120,20 @@ in
         type = types.bool;
         default = false;
         description = "Whether to run squid web proxy.";
+      };
+
+      validateConfig = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Validate config syntax.";
+      };
+
+      package = mkPackageOption pkgs "squid" { };
+
+      proxyAddress = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = "IP address on which squid will listen.";
       };
 
       proxyPort = mkOption {
@@ -149,17 +176,21 @@ in
     users.groups.squid = {};
 
     systemd.services.squid = {
-      description = "Squid caching web proxy";
+      description = "Squid caching proxy";
+      documentation = [ "man:squid(8)" ];
       after = [ "network.target" "nss-lookup.target" ];
       wantedBy = [ "multi-user.target"];
       preStart = ''
         mkdir -p "/var/log/squid"
         chown squid:squid "/var/log/squid"
+        ${cfg.package}/bin/squid --foreground -z -f ${squidConfig}
       '';
       serviceConfig = {
-        Type="forking";
         PIDFile="/run/squid.pid";
-        ExecStart  = "${pkgs.squid}/bin/squid -YCs -f ${squidConfig}";
+        ExecStart  = "${cfg.package}/bin/squid --foreground -YCs -f ${squidConfig}";
+        ExecReload = "${pkgs.coreutils}/bin/kill -HUP $MAINPID";
+        KillMode="mixed";
+        NotifyAccess="all";
       };
     };
 

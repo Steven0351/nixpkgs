@@ -1,6 +1,7 @@
 { pkgs, modulesPath, ... }:
 
-let username = "azurenixosuser";
+let
+  username = "azurenixosuser";
 in
 {
   imports = [
@@ -17,11 +18,10 @@ in
     description = "Azure NixOS Test User";
     openssh.authorizedKeys.keys = [ (builtins.readFile ~/.ssh/id_ed25519.pub) ];
   };
-  nix.trustedUsers = [ username ];
+  nix.settings.trusted-users = [ username ];
 
   virtualisation.azureImage.diskSize = 2500;
 
-  system.stateVersion = "20.03";
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   # test user doesn't have a password
@@ -29,6 +29,10 @@ in
   security.sudo.wheelNeedsPassword = false;
 
   environment.systemPackages = with pkgs; [
-    git file htop wget curl
+    git
+    file
+    htop
+    wget
+    curl
   ];
 }

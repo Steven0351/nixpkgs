@@ -1,9 +1,11 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, pytest-asyncio
-, pytestCheckHook
-, pythonOlder
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pytest-asyncio,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
 }:
 
 # This package provides a binary "apython" which sometimes invokes
@@ -16,32 +18,46 @@
 # wrapped to be able to find aioconsole and any other packages.
 buildPythonPackage rec {
   pname = "aioconsole";
-  version = "0.3.3";
-  disabled = pythonOlder "3.6";
+  version = "0.8.1";
+  pyproject = true;
+
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "vxgmichel";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "1hjdhj1y9xhq1i36r7g2lccsicbvgm7lzkyrxygs16dw11ah46mx";
+    repo = "aioconsole";
+    tag = "v${version}";
+    hash = "sha256-gFkRhewuRScEhXy0lv2R0kHfaHT1gSp3TVrqL36cRVs=";
   };
 
-  checkInputs = [
+  postPatch = ''
+    substituteInPlace pyproject.toml \
+      --replace-fail " --cov aioconsole --strict-markers --count 2 -vv" ""
+  '';
+
+  build-system = [ setuptools ];
+
+  nativeCheckInputs = [
     pytest-asyncio
     pytestCheckHook
   ];
 
-  postPatch = ''
-    substituteInPlace setup.cfg \
-      --replace "--cov aioconsole --count 2" ""
-  '';
+  __darwinAllowLocalNetworking = true;
+
+  disabledTests = [
+    "test_interact_syntax_error"
+    # Output and the sandbox don't work well together
+    "test_interact_multiple_indented_lines"
+  ];
 
   pythonImportsCheck = [ "aioconsole" ];
 
   meta = with lib; {
     description = "Asynchronous console and interfaces for asyncio";
+    changelog = "https://github.com/vxgmichel/aioconsole/releases/tag/v${version}";
     homepage = "https://github.com/vxgmichel/aioconsole";
     license = licenses.gpl3Only;
     maintainers = with maintainers; [ catern ];
+    mainProgram = "apython";
   };
 }

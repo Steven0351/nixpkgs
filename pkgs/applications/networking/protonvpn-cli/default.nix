@@ -1,37 +1,60 @@
-{ lib, fetchFromGitHub, python3Packages, openvpn, dialog, iptables }:
+{
+  lib,
+  buildPythonApplication,
+  pythonOlder,
+  fetchFromGitHub,
+  protonvpn-nm-lib,
+  pythondialog,
+  dialog,
+  wrapGAppsNoGuiHook,
+  gobject-introspection,
+  glib,
+}:
 
-python3Packages.buildPythonApplication rec {
-  pname = "protonvpn-linux-cli";
-  version = "2.2.6";
+buildPythonApplication rec {
+  pname = "protonvpn-cli";
+  version = "3.13.0";
+  format = "setuptools";
+
+  disabled = pythonOlder "3.5";
 
   src = fetchFromGitHub {
     owner = "protonvpn";
     repo = "linux-cli";
-    rev = "v${version}";
-    sha256 = "0y7v9ikrmy5dbjlpbpacp08gy838i8z54m8m4ps7ldk1j6kyia3n";
+    tag = version;
+    sha256 = "sha256-KhfogC23i7THe6YZJ6Sy1+q83vZupHsS69NurHCeo8I=";
   };
 
-  propagatedBuildInputs = (with python3Packages; [
-      requests
-      docopt
-      setuptools
-      jinja2
-      pythondialog
-    ]) ++ [
-      dialog
-      openvpn
-      iptables
-    ];
+  nativeBuildInputs = [
+    wrapGAppsNoGuiHook
+    gobject-introspection
+  ];
 
-  # No tests
+  buildInputs = [
+    glib
+  ];
+
+  propagatedBuildInputs = [
+    protonvpn-nm-lib
+    pythondialog
+    dialog
+  ];
+
+  dontWrapGApps = true;
+
+  makeWrapperArgs = [
+    "\${gappsWrapperArgs[@]}"
+  ];
+
+  # Project has a dummy test
   doCheck = false;
 
   meta = with lib; {
     description = "Linux command-line client for ProtonVPN";
     homepage = "https://github.com/protonvpn/linux-cli";
-    maintainers = with maintainers; [ jtcoolen jefflabonte shamilton ];
+    maintainers = [ ];
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
-    mainProgram = "protonvpn";
+    mainProgram = "protonvpn-cli";
   };
 }

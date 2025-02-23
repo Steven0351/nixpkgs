@@ -1,28 +1,54 @@
-{ lib, buildGoModule, fetchFromGitHub, fetchurl, makeWrapper, runCommand }:
+{
+  lib,
+  buildGoModule,
+  fetchFromGitHub,
+  makeWrapper,
+  runCommand,
+  nixosTests,
+}:
 
 let
-  version = "1.3.1";
+  version = "1.3.8";
 
   src = fetchFromGitHub {
     owner = "root-gg";
     repo = "plik";
     rev = version;
-    sha256 = "C/1Uwjsqd9n3WSXlnlq9K3EJHkLOSavS9cPqF2UqmGo=";
+    hash = "sha256-WCtfkzlZnyzZDwNDBrW06bUbLYTL2C704Y7aXbiVi5c=";
   };
 
-  vendorSha256 = "klmWXC3tkoOcQHhiQZjR2C5jqaRJqMQOLtVxZ0cFq/Y=";
+  vendorHash = null;
 
   meta = with lib; {
     homepage = "https://plik.root.gg/";
     description = "Scalable & friendly temporary file upload system";
     maintainers = with maintainers; [ freezeboy ];
     license = licenses.mit;
+    mainProgram = "plik";
   };
-in {
+
+  postPatch = ''
+    substituteInPlace server/common/version.go \
+      --replace '"0.0.0"' '"${version}"'
+  '';
+
+  passthru.tests = {
+    inherit (nixosTests) plikd;
+  };
+
+in
+{
 
   plik = buildGoModule {
     pname = "plik";
-    inherit version meta src vendorSha256;
+    inherit
+      version
+      meta
+      src
+      vendorHash
+      postPatch
+      passthru
+      ;
 
     subPackages = [ "client" ];
     postInstall = ''
@@ -32,7 +58,13 @@ in {
 
   plikd-unwrapped = buildGoModule {
     pname = "plikd-unwrapped";
-    inherit version src vendorSha256;
+    inherit
+      version
+      src
+      vendorHash
+      postPatch
+      passthru
+      ;
 
     subPackages = [ "server" ];
     postFixup = ''

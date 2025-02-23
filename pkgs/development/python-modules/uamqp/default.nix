@@ -1,66 +1,92 @@
-{ lib
-, stdenv
-, buildPythonPackage
-, certifi
-, CFNetwork
-, cmake
-, CoreFoundation
-, enum34
-, fetchpatch
-, fetchPypi
-, isPy3k
-, openssl
-, Security
-, six
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchFromGitHub,
+  fetchpatch2,
+  setuptools,
+  cython,
+  certifi,
+  CFNetwork,
+  cmake,
+  CoreFoundation,
+  openssl,
+  Security,
+  pytestCheckHook,
+  pytest-asyncio,
 }:
 
 buildPythonPackage rec {
   pname = "uamqp";
-  version = "1.4.3";
+  version = "1.6.11";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-L4IQWnxRRL3yopNT91Mk8KKdph9Vg2PHkGH+86uDu7c=";
+  src = fetchFromGitHub {
+    owner = "Azure";
+    repo = "azure-uamqp-python";
+    tag = "v${version}";
+    hash = "sha256-HTIOHheCrvyI7DwA/UcUXk/fbesd29lvUvJ9TAeG3CE=";
   };
+
+  patches = [
+    (fetchpatch2 {
+      name = "fix-clang16-compatibility.patch";
+      url = "https://github.com/Azure/azure-uamqp-python/commit/bd6d9ef5a8bca3873e1e66218fd09ca787b8064e.patch";
+      hash = "sha256-xtnIVjB71EPJp/QjLQWctcSDds5s6n4ut+gnvp3VMlM=";
+    })
+  ];
+
+  postPatch = lib.optionalString (stdenv.hostPlatform.isDarwin && !stdenv.hostPlatform.isx86_64) ''
+    # force darwin aarch64 to use openssl instead of applessl, removing
+    # some quirks upstream thinks they need to use openssl on macos
+    sed -i \
+      -e '/^use_openssl =/cuse_openssl = True' \
+      -e 's/\bazssl\b/ssl/' \
+      -e 's/\bazcrypto\b/crypto/' \
+      setup.py
+    sed -i \
+      -e '/#define EVP_PKEY_id/d' \
+      src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/adapters/x509_openssl.c
+    sed -z -i \
+      -e 's/OpenSSL 3\nif(LINUX)/OpenSSL 3\nif(1)/' \
+      src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/CMakeLists.txt
+  '';
+
+  build-system = [
+    cython
+    setuptools
+  ];
 
   nativeBuildInputs = [
     cmake
   ];
 
-  buildInputs = lib.optionals stdenv.isDarwin [
-    CoreFoundation
-    CFNetwork
-    Security
-  ];
+  buildInputs =
+    [ openssl ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      CoreFoundation
+      CFNetwork
+      Security
+    ];
 
-  propagatedBuildInputs = [
-    certifi
-    openssl
-    six
-  ] ++ lib.optionals (!isPy3k) [
-    enum34
-  ];
-
-  patches = [
-    (fetchpatch {
-      url = "https://github.com/Azure/azure-c-shared-utility/commit/52ab2095649b5951e6af77f68954209473296983.patch";
-      sha256 = "06pxhdpkv94pv3lhj1vy0wlsqsdznz485bvg3zafj67r55g40lhd";
-      stripLen = "2";
-      extraPrefix = "src/vendor/azure-uamqp-c/deps/azure-c-shared-utility/";
-    })
-  ];
+  dependencies = [ certifi ];
 
   dontUseCmakeConfigure = true;
 
-  # Project has no tests
-  doCheck = false;
+  preCheck = ''
+    # remove src module, so tests use the installed module instead
+    rm -r uamqp
+  '';
 
-  pythonImportsCheck = [
-    "uamqp"
+  nativeCheckInputs = [
+    pytestCheckHook
+    pytest-asyncio
   ];
 
+  pythonImportsCheck = [ "uamqp" ];
+
   meta = with lib; {
-    description = "An AMQP 1.0 client library for Python";
+    description = "AMQP 1.0 client library for Python";
     homepage = "https://github.com/Azure/azure-uamqp-python";
     license = licenses.mit;
     maintainers = with maintainers; [ maxwilson ];

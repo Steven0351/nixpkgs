@@ -1,22 +1,25 @@
-import ./make-test-python.nix ({ pkgs, ... }:
+import ./make-test-python.nix (
+  { pkgs, ... }:
 
-let
-  client =
-    { pkgs, ... }:
+  let
+    client =
+      { pkgs, ... }:
 
-    { imports = [ ./common/x11.nix ];
-      environment.systemPackages = [ pkgs.teeworlds ];
+      {
+        imports = [ ./common/x11.nix ];
+        environment.systemPackages = [ pkgs.teeworlds ];
+      };
+
+  in
+  {
+    name = "teeworlds";
+    meta = with pkgs.lib.maintainers; {
+      maintainers = [ hax404 ];
     };
 
-in {
-  name = "teeworlds";
-  meta = with pkgs.lib.maintainers; {
-    maintainers = [ hax404 ];
-  };
-
-  nodes =
-    { server =
-      { services.teeworlds = {
+    nodes = {
+      server = {
+        services.teeworlds = {
           enable = true;
           openPorts = true;
         };
@@ -26,8 +29,7 @@ in {
       client2 = client;
     };
 
-    testScript =
-    ''
+    testScript = ''
       start_all()
 
       server.wait_for_unit("teeworlds.service")
@@ -36,12 +38,12 @@ in {
       client1.wait_for_x()
       client2.wait_for_x()
 
-      client1.execute("teeworlds 'player_name Alice;connect server'&")
+      client1.execute("teeworlds 'player_name Alice;connect server' >&2 &")
       server.wait_until_succeeds(
           'journalctl -u teeworlds -e | grep --extended-regexp -q "team_join player=\'[0-9]:Alice"'
       )
 
-      client2.execute("teeworlds 'player_name Bob;connect server'&")
+      client2.execute("teeworlds 'player_name Bob;connect server' >&2 &")
       server.wait_until_succeeds(
           'journalctl -u teeworlds -e | grep --extended-regexp -q "team_join player=\'[0-9]:Bob"'
       )
@@ -52,4 +54,5 @@ in {
       client2.screenshot("screen_client2")
     '';
 
-})
+  }
+)

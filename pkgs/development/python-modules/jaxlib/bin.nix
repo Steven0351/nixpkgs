@@ -2,89 +2,153 @@
 # backend will require some additional work. Those wheels are located here:
 # https://storage.googleapis.com/jax-releases/libtpu_releases.html.
 
-# For future reference, the easiest way to test the GPU backend is to run
-#   NIX_PATH=.. nix-shell -p python3 python3Packages.jax "python3Packages.jaxlib.override { cudaSupport = true; }"
-#   export XLA_FLAGS=--xla_gpu_force_compilation_parallelism=1
-#   python -c "from jax.lib import xla_bridge; assert xla_bridge.get_backend().platform == 'gpu'"
-#   python -c "from jax import random; random.PRNGKey(0)"
-#   python -c "from jax import random; x = random.normal(random.PRNGKey(0), (100, 100)); x @ x"
-# There's no convenient way to test the GPU backend in the derivation since the
-# nix build environment blocks access to the GPU. See also:
-#   * https://github.com/google/jax/issues/971#issuecomment-508216439
-#   * https://github.com/google/jax/issues/5723#issuecomment-913038780
+# See `python3Packages.jax.passthru` for CUDA tests.
 
-{ addOpenGLRunpath, autoPatchelfHook, buildPythonPackage, config
-, fetchurl, isPy39, lib, stdenv
-# propagatedBuildInputs
-, absl-py, flatbuffers, scipy, cudatoolkit_11
-# Options:
-, cudaSupport ? config.cudaSupport or false
+{
+  absl-py,
+  autoPatchelfHook,
+  buildPythonPackage,
+  fetchPypi,
+  flatbuffers,
+  lib,
+  ml-dtypes,
+  python,
+  scipy,
+  stdenv,
 }:
 
-assert cudaSupport -> lib.versionAtLeast cudatoolkit_11.version "11.1";
-
 let
-  device = if cudaSupport then "gpu" else "cpu";
+  version = "0.5.0";
+  inherit (python) pythonVersion;
+
+  # As of 2023-06-06, google/jax upstream is no longer publishing CPU-only wheels to their GCS bucket. Instead the
+  # official instructions recommend installing CPU-only versions via PyPI.
+  srcs =
+    let
+      getSrcFromPypi =
+        {
+          platform,
+          dist,
+          hash,
+        }:
+        fetchPypi {
+          inherit
+            version
+            platform
+            dist
+            hash
+            ;
+          pname = "jaxlib";
+          format = "wheel";
+          # See the `disabled` attr comment below.
+          python = dist;
+          abi = dist;
+        };
+    in
+    {
+      "3.10-x86_64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_x86_64";
+        dist = "cp310";
+        hash = "sha256-dEQLYyEHM2QA1Pl6Fkgddn8T6pFMU7oU5UTG/aVIGbM=";
+      };
+      "3.10-aarch64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_aarch64";
+        dist = "cp310";
+        hash = "sha256-Wy7+Pf6/GKhMRR04A6yITuJCAhwRE7J5wT9LvDeMPcA=";
+      };
+      "3.10-aarch64-darwin" = getSrcFromPypi {
+        platform = "macosx_11_0_arm64";
+        dist = "cp310";
+        hash = "sha256-G4psQ0XxN/OHZQ3i28SIwgJRt0ErVd1kjhpPE7z1B/s=";
+      };
+
+      "3.11-x86_64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_x86_64";
+        dist = "cp311";
+        hash = "sha256-CRE+8Vgro018vEQP7bMY9IVbWbd2cRqKuiRzyXJ9MCU=";
+      };
+      "3.11-aarch64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_aarch64";
+        dist = "cp311";
+        hash = "sha256-YwiNv6qFu1bNUhqSWjRy/XMosY7JPC2P+oWvMxCVyZU=";
+      };
+      "3.11-aarch64-darwin" = getSrcFromPypi {
+        platform = "macosx_11_0_arm64";
+        dist = "cp311";
+        hash = "sha256-bNdi7RYjEySZ+nAcQgNEYQLgqcgsojGUuHKI90bRKik=";
+      };
+
+      "3.12-x86_64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_x86_64";
+        dist = "cp312";
+        hash = "sha256-+YDHM+mMmYqNqHyajMYbZybQvmZ6WL1mTB1xe0tOrnU=";
+      };
+      "3.12-aarch64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_aarch64";
+        dist = "cp312";
+        hash = "sha256-S0sBr7Dd7JbAg1a/8rtoXdvpf9/+Ttbi2DSzCrqXLyI=";
+      };
+      "3.12-aarch64-darwin" = getSrcFromPypi {
+        platform = "macosx_11_0_arm64";
+        dist = "cp312";
+        hash = "sha256-c+M1cVdgxW5jUQnWFCZDWl1/RvM2OhFdrqCUJ9XNDv0=";
+      };
+
+      "3.13-x86_64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_x86_64";
+        dist = "cp313";
+        hash = "sha256-Ee7wHTfA8cUwYmW3byB/EALRNIDe0uMf1j7HaRLJPKI=";
+      };
+      "3.13-aarch64-linux" = getSrcFromPypi {
+        platform = "manylinux2014_aarch64";
+        dist = "cp313";
+        hash = "sha256-fZsXp+oZNV1F7Nsv8NtdcHqG8MWoYtlLibRWjWxFMRo=";
+      };
+      "3.13-aarch64-darwin" = getSrcFromPypi {
+        platform = "macosx_11_0_arm64";
+        dist = "cp313";
+        hash = "sha256-7RjqcWHQOqj9TRtVSUiC8hQg79/qaOXymMSuvPKsPzQ=";
+      };
+    };
 in
-buildPythonPackage rec {
+buildPythonPackage {
   pname = "jaxlib";
-  version = "0.1.71";
+  inherit version;
   format = "wheel";
 
-  # At the time of writing (8/19/21), there are releases for 3.7-3.9. Supporting
-  # all of them is a pain, so we focus on 3.9, the current nixpkgs python3
-  # version.
-  disabled = !isPy39;
-
-  src = {
-    cpu = fetchurl {
-      url = "https://storage.googleapis.com/jax-releases/nocuda/jaxlib-${version}-cp39-none-manylinux2010_x86_64.whl";
-      sha256 = "sha256:0rqhs6qabydizlv5d3rb20dbv6612rr7dqfniy9r6h4kazdinsn6";
-    };
-    gpu = fetchurl {
-      url = "https://storage.googleapis.com/jax-releases/cuda111/jaxlib-${version}+cuda111-cp39-none-manylinux2010_x86_64.whl";
-      sha256 = "sha256:065kyzjsk9m84d138p99iymdiiicm1qz8a3iwxz8rspl43rwrw89";
-    };
-  }.${device};
+  # See https://discourse.nixos.org/t/ofborg-does-not-respect-meta-platforms/27019/6.
+  src = (
+    srcs."${pythonVersion}-${stdenv.hostPlatform.system}"
+      or (throw "jaxlib-bin is not supported on ${stdenv.hostPlatform.system}")
+  );
 
   # Prebuilt wheels are dynamically linked against things that nix can't find.
   # Run `autoPatchelfHook` to automagically fix them.
-  nativeBuildInputs = [ autoPatchelfHook ] ++ lib.optional cudaSupport addOpenGLRunpath;
+  nativeBuildInputs = lib.optionals stdenv.hostPlatform.isLinux [ autoPatchelfHook ];
   # Dynamic link dependencies
-  buildInputs = [ stdenv.cc.cc ];
+  buildInputs = [ (lib.getLib stdenv.cc.cc) ];
 
-  # jaxlib contains shared libraries that open other shared libraries via dlopen
-  # and these implicit dependencies are not recognized by ldd or
-  # autoPatchelfHook. That means we need to sneak them into rpath. This step
-  # must be done after autoPatchelfHook and the automatic stripping of
-  # artifacts. autoPatchelfHook runs in postFixup and auto-stripping runs in the
-  # patchPhase. Dependencies:
-  #   * libcudart.so.11.0 -> cudatoolkit_11.lib
-  #   * libcublas.so.11   -> cudatoolkit_11
-  #   * libcuda.so.1      -> opengl driver in /run/opengl-driver/lib
-  preInstallCheck = lib.optional cudaSupport ''
-    shopt -s globstar
-
-    addOpenGLRunpath $out/**/*.so
-
-    for file in $out/**/*.so; do
-      rpath=$(patchelf --print-rpath $file)
-      # For some reason `makeLibraryPath` on `cudatoolkit_11` maps to
-      # <cudatoolkit_11.lib>/lib which is different from <cudatoolkit_11>/lib.
-      patchelf --set-rpath "$rpath:${cudatoolkit_11}/lib:${lib.makeLibraryPath [ cudatoolkit_11.lib ]}" $file
-    done
-  '';
-
-  # pip dependencies and optionally cudatoolkit.
-  propagatedBuildInputs = [ absl-py flatbuffers scipy ] ++ lib.optional cudaSupport cudatoolkit_11;
+  dependencies = [
+    absl-py
+    flatbuffers
+    ml-dtypes
+    scipy
+  ];
 
   pythonImportsCheck = [ "jaxlib" ];
 
-  meta = with lib; {
-    description = "XLA library for JAX";
-    homepage    = "https://github.com/google/jax";
-    license     = licenses.asl20;
-    maintainers = with maintainers; [ samuela ];
-    platforms = [ "x86_64-linux" ];
+  meta = {
+    description = "Prebuilt jaxlib backend from PyPi";
+    homepage = "https://github.com/google/jax";
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ samuela ];
+    badPlatforms = [
+      # Fails at pythonImportsCheckPhase:
+      # ...-python-imports-check-hook.sh/nix-support/setup-hook: line 10: 28017 Illegal instruction: 4
+      # /nix/store/5qpssbvkzfh73xih07xgmpkj5r565975-python3-3.11.9/bin/python3.11 -c
+      # 'import os; import importlib; list(map(lambda mod: importlib.import_module(mod), os.environ["pythonImportsCheck"].split()))'
+      "x86_64-darwin"
+    ];
   };
 }

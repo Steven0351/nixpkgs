@@ -1,24 +1,37 @@
-{ lib, stdenv, rustPlatform, fetchFromGitHub, Security }:
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  fetchFromGitHub,
+  Security,
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "wagyu";
-  version = "0.6.1";
+  version = "0.6.3";
 
   src = fetchFromGitHub {
-    owner = "ArgusHQ";
+    owner = "AleoHQ";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1646j0lgg3hhznifvbkvr672p3yqlcavswijawaxq7n33ll8vmcn";
+    hash = "sha256-5n8BmETv5jUvgu0rskAPYaBgYyNL2QU2t/iUb3hNMMw=";
   };
 
-  cargoSha256 = "10al0j8ak95x4d85lzphgq8kmdnb809l6gahfp5miyvsfd4dxmpi";
+  cargoPatches = [ ./fix-rustc-serialize-version.patch ];
 
-  buildInputs = lib.optional stdenv.isDarwin Security;
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-vtNxRW/b8kvy21YQezCUiZNtLnlMSkdTRr/OkGy6UAw=";
+
+  buildInputs = lib.optional stdenv.hostPlatform.isDarwin Security;
 
   meta = with lib; {
     description = "Rust library for generating cryptocurrency wallets";
-    homepage = "https://github.com/ArgusHQ/wagyu";
-    license = with licenses; [ mit asl20 ];
+    homepage = "https://github.com/AleoHQ/wagyu";
+    license = with licenses; [
+      mit
+      asl20
+    ];
     maintainers = [ maintainers.offline ];
+    mainProgram = "wagyu";
   };
 }

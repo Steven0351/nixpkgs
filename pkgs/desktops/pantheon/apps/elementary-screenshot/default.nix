@@ -1,67 +1,55 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, nix-update-script
-, pkg-config
-, meson
-, ninja
-, vala
-, python3
-, desktop-file-utils
-, gtk3
-, granite
-, libgee
-, libhandy
-, libcanberra
-, elementary-icon-theme
-, wrapGAppsHook
+{
+  stdenv,
+  lib,
+  fetchFromGitHub,
+  meson,
+  ninja,
+  pkg-config,
+  vala,
+  wrapGAppsHook4,
+  gdk-pixbuf,
+  glib,
+  granite7,
+  gtk4,
+  libportal,
+  nix-update-script,
 }:
 
 stdenv.mkDerivation rec {
   pname = "elementary-screenshot";
-  version = "6.0.2";
+  version = "8.0.1";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = "screenshot";
     rev = version;
-    sha256 = "sha256-n+L08C/W5YnHZ5P3F1NGUYE2SH94sc4+kr1x+wXZ+cw=";
+    hash = "sha256-qhXTOdxMpiCPJR0Gp65itr6Em9e6OzMn3m/OyS7YfcA=";
   };
 
   nativeBuildInputs = [
-    desktop-file-utils
     meson
     ninja
     pkg-config
-    python3
     vala
-    wrapGAppsHook
+    wrapGAppsHook4
   ];
 
   buildInputs = [
-    elementary-icon-theme
-    granite
-    gtk3
-    libcanberra
-    libgee
-    libhandy
+    gdk-pixbuf
+    glib
+    granite7
+    gtk4
+    libportal
   ];
 
-  postPatch = ''
-    chmod +x meson/post_install.py
-    patchShebangs meson/post_install.py
-  '';
-
   passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    updateScript = nix-update-script { };
   };
 
   meta = with lib; {
     description = "Screenshot tool designed for elementary OS";
     homepage = "https://github.com/elementary/screenshot";
-    license = licenses.lgpl3;
+    license = licenses.lgpl3Plus;
     platforms = platforms.linux;
     maintainers = teams.pantheon.members;
     mainProgram = "io.elementary.screenshot";

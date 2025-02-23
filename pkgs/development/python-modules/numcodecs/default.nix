@@ -1,57 +1,76 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, isPy27
-, setuptools-scm
-, cython
-, numpy
-, msgpack
-, pytestCheckHook
-, python
-, gcc8
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+
+  # build-system
+  setuptools,
+  setuptools-scm,
+  cython,
+  py-cpuinfo,
+
+  # dependencies
+  deprecated,
+  numpy,
+
+  # optional-dependencies
+  crc32c,
+
+  # tests
+  msgpack,
+  pytestCheckHook,
+  importlib-metadata,
 }:
 
 buildPythonPackage rec {
   pname = "numcodecs";
-  version = "0.9.1";
-  disabled = isPy27;
+  version = "0.15.0";
+  pyproject = true;
+
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "35adbcc746b95e3ac92e949a161811f5aa2602b9eb1ef241b5ea6f09bb220997";
+    hash = "sha256-UvsMINmYRe9gDrP4yK0+Iv4stPKlM5TTMSEK98wzdco=";
   };
 
-  nativeBuildInputs = [
+  build-system = [
+    setuptools
     setuptools-scm
     cython
-    gcc8
+    py-cpuinfo
   ];
 
-  propagatedBuildInputs = [
+  dependencies = [
+    deprecated
     numpy
-    msgpack
   ];
 
-  checkInputs = [
+  optional-dependencies = {
+    crc32c = [ crc32c ];
+    msgpack = [ msgpack ];
+    # zfpy = [ zfpy ];
+  };
+
+  preBuild = lib.optionalString (stdenv.hostPlatform.isx86 && !stdenv.hostPlatform.avx2Support) ''
+    export DISABLE_NUMCODECS_AVX2=1
+  '';
+
+  nativeCheckInputs = [
     pytestCheckHook
-  ];
+    importlib-metadata
+  ] ++ lib.flatten (lib.attrValues optional-dependencies);
 
-  pytestFlagsArray = [
-    "$out/${python.sitePackages}/numcodecs"
-  ];
+  # https://github.com/NixOS/nixpkgs/issues/255262
+  preCheck = "pushd $out";
+  postCheck = "popd";
 
-  disabledTests = [
-    "test_backwards_compatibility"
-
-    "test_encode_decode"
-    "test_legacy_codec_broken"
-    "test_bytes"
-  ];
-
-  meta = with lib;{
+  meta = {
     homepage = "https://github.com/zarr-developers/numcodecs";
-    license = licenses.mit;
+    license = lib.licenses.mit;
     description = "Buffer compression and transformation codecs for use in data storage and communication applications";
-    maintainers = [ maintainers.costrouc ];
+    maintainers = with lib.maintainers; [ doronbehar ];
   };
 }

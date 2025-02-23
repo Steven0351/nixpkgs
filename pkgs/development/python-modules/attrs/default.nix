@@ -1,24 +1,42 @@
-{ lib
-, callPackage
-, buildPythonPackage
-, fetchPypi
+{
+  lib,
+  callPackage,
+  buildPythonPackage,
+  fetchPypi,
+  pythonOlder,
+  replaceVars,
+  hatchling,
 }:
 
 buildPythonPackage rec {
   pname = "attrs";
-  version = "21.2.0";
+  version = "24.3.0";
+  disabled = pythonOlder "3.7";
+  format = "pyproject";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "ef6aaac3ca6cd92904cdd0d83f629a15f18053ec84e6432106f7a4d04ae4f5fb";
+    hash = "sha256-j1wHMz1UMQNUG6e+Dizhbu7oEwyws/kjirkEzh6Fuv8=";
   };
 
-  outputs = [ "out" "testout" ];
+  patches = [
+    (replaceVars ./remove-hatch-plugins.patch {
+      # hatch-vcs and hatch-fancy-pypi-readme depend on pytest, which depends on attrs
+      inherit version;
+    })
+  ];
+
+  nativeBuildInputs = [ hatchling ];
+
+  outputs = [
+    "out"
+    "testout"
+  ];
 
   postInstall = ''
     # Install tests as the tests output.
     mkdir $testout
-    cp -R tests $testout/tests
+    cp -R conftest.py tests $testout
   '';
 
   pythonImportsCheck = [ "attr" ];
@@ -33,7 +51,9 @@ buildPythonPackage rec {
 
   meta = with lib; {
     description = "Python attributes without boilerplate";
-    homepage = "https://github.com/hynek/attrs";
+    homepage = "https://github.com/python-attrs/attrs";
+    changelog = "https://github.com/python-attrs/attrs/releases/tag/${version}";
     license = licenses.mit;
+    maintainers = [ ];
   };
 }

@@ -1,8 +1,17 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, ... }@host:
 
 with lib;
 
 let
+
+  configurationPrefix = optionalString (versionAtLeast config.system.stateVersion "22.05") "nixos-";
+  configurationDirectoryName = "${configurationPrefix}containers";
+  configurationDirectory = "/etc/${configurationDirectoryName}";
+  stateDirectory = "/var/lib/${configurationPrefix}containers";
+
+  nixos-container = pkgs.nixos-container.override {
+    inherit stateDirectory configurationDirectory;
+  };
 
   # The container's init script, a small wrapper around the regular
   # NixOS stage-2 init script.
@@ -76,9 +85,14 @@ let
 
   startScript = cfg:
     ''
-      mkdir -p -m 0755 "$root/etc" "$root/var/lib"
-      mkdir -p -m 0700 "$root/var/lib/private" "$root/root" /run/containers
-      if ! [ -e "$root/etc/os-release" ]; then
+      # Declare root explicitly to avoid shellcheck warnings, it comes from the env
+      declare root
+
+      mkdir -p "$root/etc" "$root/var/lib"
+      chmod 0755 "$root/etc" "$root/var/lib"
+      mkdir -p "$root/var/lib/private" "$root/root" /run/nixos-containers
+      chmod 0700 "$root/var/lib/private" "$root/root" /run/nixos-containers
+      if ! [ -e "$root/etc/os-release" ] && ! [ -h "$root/etc/os-release" ]; then
         touch "$root/etc/os-release"
       fi
 
@@ -86,19 +100,34 @@ let
         touch "$root/etc/machine-id"
       fi
 
-      mkdir -p -m 0755 \
+      mkdir -p \
+        "/nix/var/nix/profiles/per-container/$INSTANCE" \
+        "/nix/var/nix/gcroots/per-container/$INSTANCE"
+      chmod 0755 \
         "/nix/var/nix/profiles/per-container/$INSTANCE" \
         "/nix/var/nix/gcroots/per-container/$INSTANCE"
 
       cp --remove-destination /etc/resolv.conf "$root/etc/resolv.conf"
 
+      declare -a extraFlags
+
       if [ "$PRIVATE_NETWORK" = 1 ]; then
-        extraFlags+=" --private-network"
+        extraFlags+=("--private-network")
+      fi
+
+      NIX_BIND_OPT=""
+      if [ -n "$PRIVATE_USERS" ]; then
+        extraFlags+=("--private-users=$PRIVATE_USERS")
+        if [ "$PRIVATE_USERS" = "pick" ] || { [ "$PRIVATE_USERS" != "identity" ] && [ "$PRIVATE_USERS" -gt 0 ]; }; then
+          # when user namespacing is enabled, we use `idmap` mount option
+          # so that bind mounts under /nix get proper owner (and not nobody/nogroup).
+          NIX_BIND_OPT=":idmap"
+        fi
       fi
 
       if [ -n "$HOST_ADDRESS" ]  || [ -n "$LOCAL_ADDRESS" ] ||
          [ -n "$HOST_ADDRESS6" ] || [ -n "$LOCAL_ADDRESS6" ]; then
-        extraFlags+=" --network-veth"
+        extraFlags+=("--network-veth")
       fi
 
       if [ -n "$HOST_PORT" ]; then
@@ -106,51 +135,60 @@ let
         IFS=","
         for i in $HOST_PORT
         do
-            extraFlags+=" --port=$i"
+            extraFlags+=("--port=$i")
         done
         IFS=$OIFS
       fi
 
       if [ -n "$HOST_BRIDGE" ]; then
-        extraFlags+=" --network-bridge=$HOST_BRIDGE"
+        extraFlags+=("--network-bridge=$HOST_BRIDGE")
       fi
 
-      extraFlags+=" ${concatStringsSep " " (mapAttrsToList nspawnExtraVethArgs cfg.extraVeths)}"
+      if [ -n "$NETWORK_NAMESPACE_PATH" ]; then
+        extraFlags+=("--network-namespace-path=$NETWORK_NAMESPACE_PATH")
+      fi
+
+      extraFlags+=(${lib.escapeShellArgs (mapAttrsToList nspawnExtraVethArgs cfg.extraVeths)})
 
       for iface in $INTERFACES; do
-        extraFlags+=" --network-interface=$iface"
+        extraFlags+=("--network-interface=$iface")
       done
 
       for iface in $MACVLANS; do
-        extraFlags+=" --network-macvlan=$iface"
+        extraFlags+=("--network-macvlan=$iface")
       done
 
       # If the host is 64-bit and the container is 32-bit, add a
       # --personality flag.
-      ${optionalString (config.nixpkgs.localSystem.system == "x86_64-linux") ''
-        if [ "$(< ''${SYSTEM_PATH:-/nix/var/nix/profiles/per-container/$INSTANCE/system}/system)" = i686-linux ]; then
-          extraFlags+=" --personality=x86"
+      ${optionalString (pkgs.stdenv.hostPlatform.system == "x86_64-linux") ''
+        if [ "$(< "''${SYSTEM_PATH:-/nix/var/nix/profiles/per-container/$INSTANCE/system}/system")" = i686-linux ]; then
+          extraFlags+=("--personality=x86")
         fi
       ''}
+
+      export SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1
 
       # Run systemd-nspawn without startup notification (we'll
       # wait for the container systemd to signal readiness)
       # Kill signal handling means systemd-nspawn will pass a system-halt signal
       # to the container systemd when it receives SIGTERM for container shutdown;
       # containerInit and stage2 have to handle this as well.
+      # TODO: fix shellcheck issue properly
+      # shellcheck disable=SC2086
       exec ${config.systemd.package}/bin/systemd-nspawn \
         --keep-unit \
-        -M "$INSTANCE" -D "$root" $extraFlags \
+        -M "$INSTANCE" -D "$root" "''${extraFlags[@]}" \
         $EXTRA_NSPAWN_FLAGS \
         --notify-ready=yes \
         --kill-signal=SIGRTMIN+3 \
-        --bind-ro=/nix/store \
-        --bind-ro=/nix/var/nix/db \
-        --bind-ro=/nix/var/nix/daemon-socket \
-        --bind="/nix/var/nix/profiles/per-container/$INSTANCE:/nix/var/nix/profiles" \
-        --bind="/nix/var/nix/gcroots/per-container/$INSTANCE:/nix/var/nix/gcroots" \
+        --bind-ro=/nix/store:/nix/store$NIX_BIND_OPT \
+        --bind-ro=/nix/var/nix/db:/nix/var/nix/db$NIX_BIND_OPT \
+        --bind-ro=/nix/var/nix/daemon-socket:/nix/var/nix/daemon-socket$NIX_BIND_OPT \
+        --bind="/nix/var/nix/profiles/per-container/$INSTANCE:/nix/var/nix/profiles$NIX_BIND_OPT" \
+        --bind="/nix/var/nix/gcroots/per-container/$INSTANCE:/nix/var/nix/gcroots$NIX_BIND_OPT" \
         ${optionalString (!cfg.ephemeral) "--link-journal=try-guest"} \
         --setenv PRIVATE_NETWORK="$PRIVATE_NETWORK" \
+        --setenv PRIVATE_USERS="$PRIVATE_USERS" \
         --setenv HOST_BRIDGE="$HOST_BRIDGE" \
         --setenv HOST_ADDRESS="$HOST_ADDRESS" \
         --setenv LOCAL_ADDRESS="$LOCAL_ADDRESS" \
@@ -159,11 +197,11 @@ let
         --setenv HOST_PORT="$HOST_PORT" \
         --setenv PATH="$PATH" \
         ${optionalString cfg.ephemeral "--ephemeral"} \
-        ${if cfg.additionalCapabilities != null && cfg.additionalCapabilities != [] then
-          ''--capability="${concatStringsSep "," cfg.additionalCapabilities}"'' else ""
+        ${optionalString (cfg.additionalCapabilities != null && cfg.additionalCapabilities != [])
+          ''--capability="${concatStringsSep "," cfg.additionalCapabilities}"''
         } \
-        ${if cfg.tmpfs != null && cfg.tmpfs != [] then
-          ''--tmpfs=${concatStringsSep " --tmpfs=" cfg.tmpfs}'' else ""
+        ${optionalString (cfg.tmpfs != null && cfg.tmpfs != [])
+          ''--tmpfs=${concatStringsSep " --tmpfs=" cfg.tmpfs}''
         } \
         ${containerInit cfg} "''${SYSTEM_PATH:-/nix/var/nix/profiles/system}/init"
     '';
@@ -192,33 +230,33 @@ let
         if cfg.${attribute} == null then
           ''
             if [ -n "${variable}" ]; then
-              ${ipcmd} add ${variable} dev $ifaceHost
+              ${ipcmd} add "${variable}" dev "$ifaceHost"
             fi
           ''
         else
-          "${ipcmd} add ${cfg.${attribute}} dev $ifaceHost";
+          ''${ipcmd} add ${cfg.${attribute}} dev "$ifaceHost"'';
       renderExtraVeth = name: cfg:
         if cfg.hostBridge != null then
           ''
             # Add ${name} to bridge ${cfg.hostBridge}
-            ip link set dev ${name} master ${cfg.hostBridge} up
+            ip link set dev "${name}" master "${cfg.hostBridge}" up
           ''
         else
           ''
             echo "Bring ${name} up"
-            ip link set dev ${name} up
+            ip link set dev "${name}" up
             # Set IPs and routes for ${name}
             ${optionalString (cfg.hostAddress != null) ''
-              ip addr add ${cfg.hostAddress} dev ${name}
+              ip addr add ${cfg.hostAddress} dev "${name}"
             ''}
             ${optionalString (cfg.hostAddress6 != null) ''
-              ip -6 addr add ${cfg.hostAddress6} dev ${name}
+              ip -6 addr add ${cfg.hostAddress6} dev "${name}"
             ''}
             ${optionalString (cfg.localAddress != null) ''
-              ip route add ${cfg.localAddress} dev ${name}
+              ip route add ${cfg.localAddress} dev "${name}"
             ''}
             ${optionalString (cfg.localAddress6 != null) ''
-              ip -6 route add ${cfg.localAddress6} dev ${name}
+              ip -6 route add ${cfg.localAddress6} dev "${name}"
             ''}
           '';
     in
@@ -227,7 +265,7 @@ let
            [ -n "$HOST_ADDRESS6" ] || [ -n "$LOCAL_ADDRESS6" ]; then
           if [ -z "$HOST_BRIDGE" ]; then
             ifaceHost=ve-$INSTANCE
-            ip link set dev $ifaceHost up
+            ip link set dev "$ifaceHost" up
 
             ${ipcall cfg "ip addr" "$HOST_ADDRESS" "hostAddress"}
             ${ipcall cfg "ip -6 addr" "$HOST_ADDRESS6" "hostAddress6"}
@@ -243,17 +281,17 @@ let
     ExecReload = pkgs.writeScript "reload-container"
       ''
         #! ${pkgs.runtimeShell} -e
-        ${pkgs.nixos-container}/bin/nixos-container run "$INSTANCE" -- \
+        ${nixos-container}/bin/nixos-container run "$INSTANCE" -- \
           bash --login -c "''${SYSTEM_PATH:-/nix/var/nix/profiles/system}/bin/switch-to-configuration test"
       '';
 
     SyslogIdentifier = "container %i";
 
-    EnvironmentFile = "-/etc/containers/%i.conf";
+    EnvironmentFile = "-${configurationDirectory}/%i.conf";
 
     Type = "notify";
 
-    RuntimeDirectory = lib.optional cfg.ephemeral "containers/%i";
+    RuntimeDirectory = lib.optional cfg.ephemeral "${configurationDirectoryName}/%i";
 
     # Note that on reboot, systemd-nspawn returns 133, so this
     # unit will be restarted. On poweroff, it returns 0, so the
@@ -279,7 +317,6 @@ let
     DeviceAllow = map (d: "${d.node} ${d.modifier}") cfg.allowedDevices;
   };
 
-  system = config.nixpkgs.localSystem.system;
   kernelVersion = config.boot.kernelPackages.kernel.version;
 
   bindMountOpts = { name, ... }: {
@@ -321,9 +358,9 @@ let
         type = types.str;
         description = ''
           Device node access modifier. Takes a combination
-          <literal>r</literal> (read), <literal>w</literal> (write), and
-          <literal>m</literal> (mknod). See the
-          <literal>systemd.resource-control(5)</literal> man page for more
+          `r` (read), `w` (write), and
+          `m` (mknod). See the
+          {manpage}`systemd.resource-control(5)` man page for more
           information.'';
       };
     };
@@ -473,12 +510,16 @@ in
               type = lib.mkOptionType {
                 name = "Toplevel NixOS config";
                 merge = loc: defs: (import "${toString config.nixpkgs}/nixos/lib/eval-config.nix" {
-                  inherit system;
                   modules =
                     let
-                      extraConfig = {
+                      extraConfig = { options, ... }: {
                         _file = "module at ${__curPos.file}:${toString __curPos.line}";
                         config = {
+                          nixpkgs =
+                            if options.nixpkgs?hostPlatform
+                            then { inherit (host.pkgs.stdenv) hostPlatform; }
+                            else { localSystem = host.pkgs.stdenv.hostPlatform; }
+                          ;
                           boot.isContainer = true;
                           networking.hostName = mkDefault name;
                           networking.useDHCP = false;
@@ -496,11 +537,22 @@ in
                                 for details).
                               '';
                             }
+                            {
+                              assertion = !lib.strings.hasInfix "_" name;
+                              message = ''
+                                Names containing underscores are not allowed in nixos-containers. Please rename the container '${name}'
+                              '';
+                            }
                           ];
                         };
                       };
                     in [ extraConfig ] ++ (map (x: x.value) defs);
                   prefix = [ "containers" name ];
+                  inherit (config) specialArgs;
+
+                  # The system is inherited from the host above.
+                  # Set it to null, to remove the "legacy" entrypoint's non-hermetic default.
+                  system = null;
                 }).config;
               };
             };
@@ -510,7 +562,7 @@ in
               example = "/nix/var/nix/profiles/per-container/webserver";
               description = ''
                 As an alternative to specifying
-                <option>config</option>, you can specify the path to
+                {option}`config`, you can specify the path to
                 the evaluated NixOS system configuration, typically a
                 symlink to a system profile.
               '';
@@ -522,7 +574,7 @@ in
               example = [ "CAP_NET_ADMIN" "CAP_MKNOD" ];
               description = ''
                 Grant additional capabilities to the container.  See the
-                capabilities(7) and systemd-nspawn(1) man pages for more
+                {manpage}`capabilities(7)` and {manpage}`systemd-nspawn(1)` man pages for more
                 information.
               '';
             };
@@ -534,11 +586,21 @@ in
               description = ''
                 A path to the nixpkgs that provide the modules, pkgs and lib for evaluating the container.
 
-                To only change the <literal>pkgs</literal> argument used inside the container modules,
-                set the <literal>nixpkgs.*</literal> options in the container <option>config</option>.
-                Setting <literal>config.nixpkgs.pkgs = pkgs</literal> speeds up the container evaluation
-                by reusing the system pkgs, but the <literal>nixpkgs.config</literal> option in the
+                To only change the `pkgs` argument used inside the container modules,
+                set the `nixpkgs.*` options in the container {option}`config`.
+                Setting `config.nixpkgs.pkgs = pkgs` speeds up the container evaluation
+                by reusing the system pkgs, but the `nixpkgs.config` option in the
                 container config is ignored in this case.
+              '';
+            };
+
+            specialArgs = mkOption {
+              type = types.attrsOf types.unspecified;
+              default = {};
+              description = ''
+                A set of special arguments to be passed to NixOS modules.
+                This will be merged into the `specialArgs` used to evaluate
+                the NixOS configurations.
               '';
             };
 
@@ -553,8 +615,8 @@ in
 
                 Note that this option might require to do some adjustments to the container configuration,
                 e.g. you might want to set
-                <varname>systemd.network.networks.$interface.dhcpV4Config.ClientIdentifier</varname> to "mac"
-                if you use <varname>macvlans</varname> option.
+                {var}`systemd.network.networks.$interface.dhcpV4Config.ClientIdentifier` to "mac"
+                if you use {var}`macvlans` option.
                 This way dhcp client identifier will be stable between the container restarts.
 
                 Note that the container journal will not be linked to the host if this option is enabled.
@@ -566,8 +628,8 @@ in
               default = false;
               description = ''
                 Allows the container to create and setup tunnel interfaces
-                by granting the <literal>NET_ADMIN</literal> capability and
-                enabling access to <literal>/dev/net/tun</literal>.
+                by granting the `NET_ADMIN` capability and
+                enabling access to `/dev/net/tun`.
               '';
             };
 
@@ -577,11 +639,46 @@ in
               description = ''
                 Whether to give the container its own private virtual
                 Ethernet interface.  The interface is called
-                <literal>eth0</literal>, and is hooked up to the interface
-                <literal>ve-<replaceable>container-name</replaceable></literal>
+                `eth0`, and is hooked up to the interface
+                `ve-«container-name»`
                 on the host.  If this option is not set, then the
                 container shares the network interfaces of the host,
                 and can bind to any port on any interface.
+              '';
+            };
+
+            networkNamespace = mkOption {
+              type = types.nullOr types.path;
+              default = null;
+              description = ''
+                Takes the path to a file representing a kernel network namespace that the container
+                shall run in. The specified path should refer to a (possibly bind-mounted) network
+                namespace file, as exposed by the kernel below /proc/<PID>/ns/net. This makes the
+                container enter the given network namespace. One of the typical use cases is to give
+                a network namespace under /run/netns created by {manpage}`ip-netns(8)`.
+                Note that this option cannot be used together with other network-related options,
+                such as --private-network or --network-interface=.
+              '';
+            };
+
+            privateUsers = mkOption {
+              type = types.either types.ints.u32 (types.enum [ "no" "identity" "pick" ]);
+              default = "no";
+              description = ''
+                Whether to give the container its own private UIDs/GIDs space (user namespacing).
+                Disabled by default (`no`).
+
+                If set to a number (usually above host's UID/GID range: 65536),
+                user namespacing is enabled and the container UID/GIDs will start at that number.
+
+                If set to `identity`, mostly equivalent to `0`, this will only provide
+                process capability isolation (no UID/GID isolation, as they are the same as host).
+
+                If set to `pick`, user namespacing is enabled and the UID/GID range is automatically chosen,
+                so that no overlapping UID/GID ranges are assigned to multiple containers.
+                This is the recommanded option as it enhances container security massively and operates fully automatically in most cases.
+
+                See https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html#--private-users= for details.
               '';
             };
 
@@ -621,14 +718,22 @@ in
               '';
             };
 
+            restartIfChanged = mkOption {
+              type = types.bool;
+              default = true;
+              description = ''
+                Whether the container should be restarted during a NixOS
+                configuration switch if its definition has changed.
+              '';
+            };
+
             timeoutStartSec = mkOption {
               type = types.str;
               default = "1min";
               description = ''
                 Time for the container to start. In case of a timeout,
                 the container processes get killed.
-                See <citerefentry><refentrytitle>systemd.time</refentrytitle>
-                <manvolnum>7</manvolnum></citerefentry>
+                See {manpage}`systemd.time(7)`
                 for more information about the format.
                '';
             };
@@ -642,8 +747,7 @@ in
                 }
               '';
 
-              description =
-                ''
+              description = ''
                   An extra list of directories that is bound to the container.
                 '';
             };
@@ -651,7 +755,7 @@ in
             allowedDevices = mkOption {
               type = with types; listOf (submodule allowedDeviceOpts);
               default = [];
-              example = [ { node = "/dev/net/tun"; modifier = "rw"; } ];
+              example = [ { node = "/dev/net/tun"; modifier = "rwm"; } ];
               description = ''
                 A list of device nodes to which the containers has access to.
               '';
@@ -665,7 +769,7 @@ in
                 Mounts a set of tmpfs file systems into the container.
                 Multiple paths can be specified.
                 Valid items must conform to the --tmpfs argument
-                of systemd-nspawn. See systemd-nspawn(1) for details.
+                of systemd-nspawn. See {manpage}`systemd-nspawn(1)` for details.
               '';
             };
 
@@ -675,7 +779,7 @@ in
               example = [ "--drop-capability=CAP_SYS_CHROOT" ];
               description = ''
                 Extra flags passed to the systemd-nspawn command.
-                See systemd-nspawn(1) for details.
+                See {manpage}`systemd-nspawn(1)` for details.
               '';
             };
 
@@ -716,9 +820,9 @@ in
               { config =
                   { config, pkgs, ... }:
                   { services.postgresql.enable = true;
-                    services.postgresql.package = pkgs.postgresql_10;
+                    services.postgresql.package = pkgs.postgresql_14;
 
-                    system.stateVersion = "21.05";
+                    system.stateVersion = "${lib.trivial.release}";
                   };
               };
           }
@@ -726,141 +830,175 @@ in
       description = ''
         A set of NixOS system configurations to be run as lightweight
         containers.  Each container appears as a service
-        <literal>container-<replaceable>name</replaceable></literal>
+        `container-«name»`
         on the host system, allowing it to be started and stopped via
-        <command>systemctl</command>.
+        {command}`systemctl`.
       '';
     };
 
   };
 
 
-  config = mkIf (config.boot.enableContainers) (let
+  config = mkMerge [
+    {
+      warnings = optional (!config.boot.enableContainers && config.containers != {})
+        "containers.<name> is used, but boot.enableContainers is false. To use containers.<name>, set boot.enableContainers to true.";
 
-    unit = {
-      description = "Container '%i'";
+      assertions = let
+        mapper = name: cfg: optional (cfg.networkNamespace != null && (cfg.privateNetwork || cfg.interfaces != []))
+          "containers.${name}.networkNamespace is mutally exclusive to containers.${name}.privateNetwork and containers.${name}.interfaces.";
+      in mkMerge (mapAttrsToList mapper config.containers);
+    }
 
-      unitConfig.RequiresMountsFor = "/var/lib/containers/%i";
+    (mkIf (config.boot.enableContainers) (let
+      unit = {
+        description = "Container '%i'";
 
-      path = [ pkgs.iproute2 ];
+        unitConfig.RequiresMountsFor = "${stateDirectory}/%i";
 
-      environment = {
-        root = "/var/lib/containers/%i";
-        INSTANCE = "%i";
+        path = [ pkgs.iproute2 ];
+
+        environment = {
+          root = "${stateDirectory}/%i";
+          INSTANCE = "%i";
+        };
+
+        preStart = preStartScript dummyConfig;
+
+        script = startScript dummyConfig;
+
+        postStart = postStartScript dummyConfig;
+
+        restartIfChanged = false;
+
+        serviceConfig = serviceDirectives dummyConfig;
       };
+    in {
+      warnings =
+        (optional (config.virtualisation.containers.enable && versionOlder config.system.stateVersion "22.05") ''
+          Enabling both boot.enableContainers & virtualisation.containers on system.stateVersion < 22.05 is unsupported.
+        '');
 
-      preStart = preStartScript dummyConfig;
+      systemd.targets.multi-user.wants = [ "machines.target" ];
 
-      script = startScript dummyConfig;
+      systemd.services = listToAttrs (filter (x: x.value != null) (
+        # The generic container template used by imperative containers
+        [{ name = "container@"; value = unit; }]
+        # declarative containers
+        ++ (mapAttrsToList (name: cfg: nameValuePair "container@${name}" (let
+            containerConfig = cfg // (
+            optionalAttrs cfg.enableTun
+              {
+                allowedDevices = cfg.allowedDevices
+                  ++ [ { node = "/dev/net/tun"; modifier = "rwm"; } ];
+                additionalCapabilities = cfg.additionalCapabilities
+                  ++ [ "CAP_NET_ADMIN" ];
+              }
+            ) // (
+            optionalAttrs (!cfg.enableTun && cfg.privateNetwork
+              && (cfg.privateUsers == "pick" || (builtins.isInt cfg.privateUsers && cfg.privateUsers > 0 )))
+              {
+                allowedDevices = cfg.allowedDevices
+                  ++ [ { node = "/dev/net/tun"; modifier = "rwm"; } ];
+              }
+            );
+          in
+            recursiveUpdate unit {
+              preStart = preStartScript containerConfig;
+              script = startScript containerConfig;
+              postStart = postStartScript containerConfig;
+              serviceConfig = serviceDirectives containerConfig;
+              unitConfig.RequiresMountsFor = lib.optional (!containerConfig.ephemeral) "${stateDirectory}/%i"
+                ++ builtins.map
+                  (d: if d.hostPath != null then d.hostPath else d.mountPoint)
+                  (builtins.attrValues cfg.bindMounts);
+              environment.root = if containerConfig.ephemeral then "/run/nixos-containers/%i" else "${stateDirectory}/%i";
+            } // (
+            optionalAttrs containerConfig.autoStart
+              {
+                wantedBy = [ "machines.target" ];
+                wants = [ "network.target" ] ++ (map (i: "sys-subsystem-net-devices-${i}.device") cfg.interfaces);
+                after = [ "network.target" ] ++ (map (i: "sys-subsystem-net-devices-${i}.device") cfg.interfaces);
+                restartTriggers = [
+                  containerConfig.path
+                  config.environment.etc."${configurationDirectoryName}/${name}.conf".source
+                ];
+                restartIfChanged = containerConfig.restartIfChanged;
+              }
+            )
+        )) config.containers)
+      ));
 
-      postStart = postStartScript dummyConfig;
-
-      restartIfChanged = false;
-
-      serviceConfig = serviceDirectives dummyConfig;
-    };
-  in {
-    systemd.targets.multi-user.wants = [ "machines.target" ];
-
-    systemd.services = listToAttrs (filter (x: x.value != null) (
-      # The generic container template used by imperative containers
-      [{ name = "container@"; value = unit; }]
-      # declarative containers
-      ++ (mapAttrsToList (name: cfg: nameValuePair "container@${name}" (let
-          containerConfig = cfg // (
-          if cfg.enableTun then
-            {
-              allowedDevices = cfg.allowedDevices
-                ++ [ { node = "/dev/net/tun"; modifier = "rw"; } ];
-              additionalCapabilities = cfg.additionalCapabilities
-                ++ [ "CAP_NET_ADMIN" ];
-            }
-          else {});
-        in
-          recursiveUpdate unit {
-            preStart = preStartScript containerConfig;
-            script = startScript containerConfig;
-            postStart = postStartScript containerConfig;
-            serviceConfig = serviceDirectives containerConfig;
-            unitConfig.RequiresMountsFor = lib.optional (!containerConfig.ephemeral) "/var/lib/containers/%i";
-            environment.root = if containerConfig.ephemeral then "/run/containers/%i" else "/var/lib/containers/%i";
-          } // (
-          if containerConfig.autoStart then
-            {
-              wantedBy = [ "machines.target" ];
-              wants = [ "network.target" ];
-              after = [ "network.target" ];
-              restartTriggers = [
-                containerConfig.path
-                config.environment.etc."containers/${name}.conf".source
-              ];
-              restartIfChanged = true;
-            }
-          else {})
-      )) config.containers)
-    ));
-
-    # Generate a configuration file in /etc/containers for each
-    # container so that container@.target can get the container
-    # configuration.
-    environment.etc =
-      let mkPortStr = p: p.protocol + ":" + (toString p.hostPort) + ":" + (if p.containerPort == null then toString p.hostPort else toString p.containerPort);
-      in mapAttrs' (name: cfg: nameValuePair "containers/${name}.conf"
-      { text =
-          ''
-            SYSTEM_PATH=${cfg.path}
-            ${optionalString cfg.privateNetwork ''
-              PRIVATE_NETWORK=1
-              ${optionalString (cfg.hostBridge != null) ''
-                HOST_BRIDGE=${cfg.hostBridge}
+      # Generate a configuration file in /etc/nixos-containers for each
+      # container so that container@.target can get the container
+      # configuration.
+      environment.etc =
+        let mkPortStr = p: p.protocol + ":" + (toString p.hostPort) + ":" + (if p.containerPort == null then toString p.hostPort else toString p.containerPort);
+        in mapAttrs' (name: cfg: nameValuePair "${configurationDirectoryName}/${name}.conf"
+        { text =
+            ''
+              SYSTEM_PATH=${cfg.path}
+              ${optionalString cfg.privateNetwork ''
+                PRIVATE_NETWORK=1
+                ${optionalString (cfg.hostBridge != null) ''
+                  HOST_BRIDGE=${cfg.hostBridge}
+                ''}
+                ${optionalString (length cfg.forwardPorts > 0) ''
+                  HOST_PORT=${concatStringsSep "," (map mkPortStr cfg.forwardPorts)}
+                ''}
+                ${optionalString (cfg.hostAddress != null) ''
+                  HOST_ADDRESS=${cfg.hostAddress}
+                ''}
+                ${optionalString (cfg.hostAddress6 != null) ''
+                  HOST_ADDRESS6=${cfg.hostAddress6}
+                ''}
+                ${optionalString (cfg.localAddress != null) ''
+                  LOCAL_ADDRESS=${cfg.localAddress}
+                ''}
+                ${optionalString (cfg.localAddress6 != null) ''
+                  LOCAL_ADDRESS6=${cfg.localAddress6}
+                ''}
               ''}
-              ${optionalString (length cfg.forwardPorts > 0) ''
-                HOST_PORT=${concatStringsSep "," (map mkPortStr cfg.forwardPorts)}
+              ${optionalString (cfg.networkNamespace != null) ''
+                NETWORK_NAMESPACE_PATH=${cfg.networkNamespace}
               ''}
-              ${optionalString (cfg.hostAddress != null) ''
-                HOST_ADDRESS=${cfg.hostAddress}
+              PRIVATE_USERS=${toString cfg.privateUsers}
+              INTERFACES="${toString cfg.interfaces}"
+              MACVLANS="${toString cfg.macvlans}"
+              ${optionalString cfg.autoStart ''
+                AUTO_START=1
               ''}
-              ${optionalString (cfg.hostAddress6 != null) ''
-                HOST_ADDRESS6=${cfg.hostAddress6}
-              ''}
-              ${optionalString (cfg.localAddress != null) ''
-                LOCAL_ADDRESS=${cfg.localAddress}
-              ''}
-              ${optionalString (cfg.localAddress6 != null) ''
-                LOCAL_ADDRESS6=${cfg.localAddress6}
-              ''}
-            ''}
-            INTERFACES="${toString cfg.interfaces}"
-            MACVLANS="${toString cfg.macvlans}"
-            ${optionalString cfg.autoStart ''
-              AUTO_START=1
-            ''}
-            EXTRA_NSPAWN_FLAGS="${mkBindFlags cfg.bindMounts +
-              optionalString (cfg.extraFlags != [])
-                (" " + concatStringsSep " " cfg.extraFlags)}"
-          '';
-      }) config.containers;
+              EXTRA_NSPAWN_FLAGS="${mkBindFlags cfg.bindMounts +
+                optionalString (cfg.extraFlags != [])
+                  (" " + concatStringsSep " " cfg.extraFlags)}"
+            '';
+        }) config.containers;
 
-    # Generate /etc/hosts entries for the containers.
-    networking.extraHosts = concatStrings (mapAttrsToList (name: cfg: optionalString (cfg.localAddress != null)
-      ''
-        ${head (splitString "/" cfg.localAddress)} ${name}.containers
-      '') config.containers);
+      # Generate /etc/hosts entries for the containers.
+      networking.extraHosts = concatStrings (mapAttrsToList (name: cfg: optionalString (cfg.localAddress != null)
+        ''
+          ${head (splitString "/" cfg.localAddress)} ${name}.containers
+        '') config.containers);
 
-    networking.dhcpcd.denyInterfaces = [ "ve-*" "vb-*" ];
+      networking.dhcpcd.denyInterfaces = [ "ve-*" "vb-*" ];
 
-    services.udev.extraRules = optionalString config.networking.networkmanager.enable ''
-      # Don't manage interfaces created by nixos-container.
-      ENV{INTERFACE}=="v[eb]-*", ENV{NM_UNMANAGED}="1"
-    '';
+      services.udev.extraRules = optionalString config.networking.networkmanager.enable ''
+        # Don't manage interfaces created by nixos-container.
+        ENV{INTERFACE}=="v[eb]-*", ENV{NM_UNMANAGED}="1"
+      '';
 
-    environment.systemPackages = [ pkgs.nixos-container ];
+      environment.systemPackages = [
+        nixos-container
+      ];
 
-    boot.kernelModules = [
-      "bridge"
-      "macvlan"
-      "tap"
-      "tun"
-    ];
-  });
+      boot.kernelModules = [
+        "bridge"
+        "macvlan"
+        "tap"
+        "tun"
+      ];
+    }))
+  ];
+
+  meta.buildDocsInSandbox = false;
 }

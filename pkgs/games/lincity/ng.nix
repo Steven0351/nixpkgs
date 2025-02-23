@@ -1,55 +1,81 @@
-{ lib, stdenv, fetchFromGitHub, autoreconfHook, jam, pkg-config
-, zlib, libxml2, libxslt, xorgproto, libX11, libGLU, libGL, SDL
-, SDL_mixer, SDL_image, SDL_ttf, SDL_gfx, physfs
+{
+  stdenv,
+  SDL2,
+  SDL2_gfx,
+  SDL2_image,
+  SDL2_mixer,
+  SDL2_ttf,
+  cmake,
+  fetchFromGitHub,
+  lib,
+  libGL,
+  libGLU,
+  libX11,
+  libxml2,
+  libxmlxx5,
+  libxslt,
+  physfs,
+  pkg-config,
+  xorgproto,
+  zlib,
+  gettext,
+  include-what-you-use,
 }:
 
-stdenv.mkDerivation {
+stdenv.mkDerivation (finalAttrs: {
   pname = "lincity-ng";
-  version = "2.9beta.20170715";
+  version = "2.13.1";
 
   src = fetchFromGitHub {
-    owner  = "lincity-ng";
-    repo   = "lincity-ng";
-    rev    = "0c19714b811225238f310633e59f428934185e6b";
-    sha256 = "1gaj9fq97zmb0jsdw4rzrw34pimkmkwbfqps0glpqij4w3srz5f3";
+    owner = "lincity-ng";
+    repo = "lincity-ng";
+    rev = "lincity-ng-${finalAttrs.version}";
+    hash = "sha256-ACJVhMq2IEJNrbAdmkgHxQV0uKSXpwR8a/5jcrQS+oI=";
   };
 
   hardeningDisable = [ "format" ];
 
   nativeBuildInputs = [
-    autoreconfHook jam pkg-config
+    cmake
+    pkg-config
+    gettext
+    include-what-you-use
+    libxml2
   ];
 
   buildInputs = [
-    zlib libxml2 libxslt xorgproto libX11 libGLU libGL SDL SDL_mixer SDL_image
-    SDL_ttf SDL_gfx physfs
+    SDL2
+    SDL2_gfx
+    SDL2_image
+    SDL2_mixer
+    SDL2_ttf
+    libGL
+    libGLU
+    libX11
+    libxmlxx5
+    libxml2
+    libxslt
+    physfs
+    xorgproto
+    zlib
   ];
 
-  autoreconfPhase = ''
-    ./autogen.sh
-  '';
+  cmakeFlags = [
+    "-DLIBXML2_LIBRARY=${lib.getLib libxml2}/lib/libxml2${stdenv.hostPlatform.extensions.sharedLibrary}"
+    "-DLIBXML2_XMLCATALOG_EXECUTABLE=${lib.getBin libxml2}/bin/xmlcatalog"
+    "-DLIBXML2_XMLLINT_EXECUTABLE=${lib.getBin libxml2}/bin/xmllint"
+  ];
 
-  buildPhase = ''
-    runHook preBuild
-
-    AR='ar r' jam -j $NIX_BUILD_CORES
-
-    runHook postBuild
-  '';
-
-  installPhase = ''
-    runHook preInstall
-
-    touch CREDITS
-    AR='ar r' jam install
-
-    runHook postInstall
-  '';
+  env.NIX_CFLAGS_COMPILE = "
+    -I${lib.getDev SDL2_image}/include/SDL2
+    -I${lib.getDev SDL2_mixer}/include/SDL2
+  ";
 
   meta = with lib; {
     description = "City building game";
-    license = licenses.gpl2;
+    mainProgram = "lincity-ng";
+    license = licenses.gpl2Plus;
     maintainers = with maintainers; [ raskin ];
     platforms = platforms.linux;
   };
-}
+})

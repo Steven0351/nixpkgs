@@ -1,33 +1,40 @@
-{ lib, buildGoModule, fetchFromGitHub, nixosTests }:
-
-with lib;
+{
+  lib,
+  buildGoModule,
+  fetchFromGitHub,
+  nixosTests,
+}:
 
 buildGoModule rec {
   pname = "flannel";
-  version = "0.15.1";
+  version = "0.26.3";
   rev = "v${version}";
 
-  vendorSha256 = null;
+  vendorHash = "sha256-OTorRwkCl4CQUDHNxr1A4XmSmPvZij4OqPpg+mPRe68=";
 
   src = fetchFromGitHub {
     inherit rev;
     owner = "flannel-io";
     repo = "flannel";
-    sha256 = "1p4rz4kdiif8i78zgxhw6dd0c1bq159f6l1idvig5apph7zi2bwm";
+    sha256 = "sha256-YsrWZpCE79jmJRkpGTuB5D8kw4HEjXG4WzqR3IkRzQU=";
   };
 
-  ldflags = [ "-X github.com/flannel-io/flannel/version.Version=${rev}" ];
+  ldflags = [ "-X github.com/flannel-io/flannel/pkg/version.Version=${rev}" ];
 
   # TestRouteCache/TestV6RouteCache fail with "Failed to create newns: operation not permitted"
   doCheck = false;
 
   passthru.tests = { inherit (nixosTests) flannel; };
 
-  meta = {
+  meta = with lib; {
     description = "Network fabric for containers, designed for Kubernetes";
     license = licenses.asl20;
     homepage = "https://github.com/flannel-io/flannel";
-    maintainers = with maintainers; [ johanot offline ];
+    maintainers = with maintainers; [
+      johanot
+      offline
+    ];
     platforms = with platforms; linux;
+    mainProgram = "flannel";
   };
 }

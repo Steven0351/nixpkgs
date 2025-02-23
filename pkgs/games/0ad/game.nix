@@ -1,67 +1,136 @@
-{ stdenv, lib, perl, fetchurl, python3, fmt, libidn
-, pkg-config, spidermonkey_78, boost, icu, libxml2, libpng, libsodium
-, libjpeg, zlib, curl, libogg, libvorbis, enet, miniupnpc
-, openal, libGLU, libGL, xorgproto, libX11, libXcursor, nspr, SDL2
-, gloox, nvidia-texture-tools
-, withEditor ? true, wxGTK
+{
+  stdenv,
+  lib,
+  fetchpatch,
+  fetchpatch2,
+  perl,
+  fetchurl,
+  python3,
+  fmt,
+  libidn,
+  pkg-config,
+  spidermonkey_115,
+  boost,
+  icu,
+  libxml2,
+  libpng,
+  libsodium,
+  libjpeg,
+  zlib,
+  curl,
+  libogg,
+  libvorbis,
+  enet,
+  miniupnpc,
+  openal,
+  libGLU,
+  libGL,
+  xorgproto,
+  libX11,
+  libXcursor,
+  nspr,
+  SDL2,
+  gloox,
+  nvidia-texture-tools,
+  premake5,
+  cxxtest,
+  freetype,
+  withEditor ? true,
+  wxGTK,
 }:
 
 # You can find more instructions on how to build 0ad here:
 #    https://trac.wildfiregames.com/wiki/BuildInstructions
 
-let
-  # the game requires a special version 78.6.0 of spidermonkey, otherwise
-  # we get compilation errors. We override the src attribute of spidermonkey_78
-  # in order to reuse that declartion, while giving it a different source input.
-  spidermonkey_78_6 = spidermonkey_78.overrideAttrs(old: rec {
-    version = "78.6.0";
-    src = fetchurl {
-      url = "mirror://mozilla/firefox/releases/${version}esr/source/firefox-${version}esr.source.tar.xz";
-      sha256 = "0lyg65v380j8i2lrylwz8a5ya80822l8vcnlx3dfqpd3s6zzjsay";
-    };
-    patches = (old.patches or []) ++ [
-      ./spidermonkey-cargo-toml.patch
-    ];
-  });
-in
 stdenv.mkDerivation rec {
   pname = "0ad";
-  version = "0.0.25b";
+  version = "0.27.0";
 
   src = fetchurl {
-    url = "http://releases.wildfiregames.com/0ad-${version}-alpha-unix-build.tar.xz";
-    sha256 = "1p9fa8f7sjb9c5wl3mawzyfqvgr614kdkhrj2k4db9vkyisws3fp";
+    url = "http://releases.wildfiregames.com/0ad-${version}-unix-build.tar.xz";
+    hash = "sha256-qpSFcAl1DV9h2/AWvBUOO9y9s6zfyK0gtzq4tD6aG6Y=";
   };
 
-  nativeBuildInputs = [ python3 perl pkg-config ];
-
-  buildInputs = [
-    spidermonkey_78_6 boost icu libxml2 libpng libjpeg
-    zlib curl libogg libvorbis enet miniupnpc openal libidn
-    libGLU libGL xorgproto libX11 libXcursor nspr SDL2 gloox
-    nvidia-texture-tools libsodium fmt
-  ] ++ lib.optional withEditor wxGTK;
-
-  NIX_CFLAGS_COMPILE = toString [
-    "-I${xorgproto}/include/X11"
-    "-I${libX11.dev}/include/X11"
-    "-I${libXcursor.dev}/include/X11"
-    "-I${SDL2}/include/SDL2"
-    "-I${fmt.dev}/include"
+  nativeBuildInputs = [
+    python3
+    perl
+    pkg-config
   ];
 
-  patches = [ ./rootdir_env.patch ];
+  buildInputs = [
+    spidermonkey_115
+    boost
+    icu
+    libxml2
+    libpng
+    libjpeg
+    zlib
+    curl
+    libogg
+    libvorbis
+    enet
+    miniupnpc
+    openal
+    libidn
+    libGLU
+    libGL
+    xorgproto
+    libX11
+    libXcursor
+    nspr
+    SDL2
+    gloox
+    nvidia-texture-tools
+    libsodium
+    fmt
+    freetype
+    premake5
+    cxxtest
+  ] ++ lib.optional withEditor wxGTK;
+
+  env.NIX_CFLAGS_COMPILE = toString [
+    "-I${xorgproto}/include"
+    "-I${libX11.dev}/include"
+    "-I${libXcursor.dev}/include"
+    "-I${SDL2}/include/SDL2"
+    "-I${fmt.dev}/include"
+    "-I${nvidia-texture-tools.dev}/include"
+  ];
+
+  NIX_CFLAGS_LINK = toString [
+    "-L${nvidia-texture-tools.lib}/lib/static"
+  ];
+
+  patches = [
+    ./rootdir_env.patch
+    # Fix build script when using system premake
+    # https://gitea.wildfiregames.com/0ad/0ad/pulls/7571
+    # FIXME: Remove with next package update
+    ./fix-build-script.patch
+  ];
 
   configurePhase = ''
     # Delete shipped libraries which we don't need.
-    rm -rf libraries/source/{enet,miniupnpc,nvtt,spidermonkey}
+    rm -rf libraries/source/{cxxtest-4.4,nvtt,premake-core,spidermonkey,spirv-reflect}
+
+    # Build remaining library dependencies (should be fcollada only)
+    pushd libraries
+    ./build-source-libs.sh \
+      --with-system-cxxtest \
+      --with-system-nvtt \
+      --with-system-mozjs \
+      --with-system-premake \
+      -j$NIX_BUILD_CORES
+    popd
 
     # Update Makefiles
     pushd build/workspaces
     ./update-workspaces.sh \
+      --with-system-premake5 \
+      --with-system-cxxtest \
       --with-system-nvtt \
       --with-system-mozjs \
-      ${lib.optionalString withEditor "--enable-atlas"} \
+      ${lib.optionalString (!withEditor) "--without-atlas"} \
       --bindir="$out"/bin \
       --libdir="$out"/lib/0ad \
       --without-tests \
@@ -90,18 +159,22 @@ stdenv.mkDerivation rec {
     install -Dm644 -t $out/lib/0ad        binaries/system/*.so
 
     # Copy icon.
-    install -D build/resources/0ad.png     $out/share/icons/hicolor/128x128/0ad.png
+    install -D build/resources/0ad.png     $out/share/icons/hicolor/128x128/apps/0ad.png
     install -D build/resources/0ad.desktop $out/share/applications/0ad.desktop
   '';
 
   meta = with lib; {
-    description = "A free, open-source game of ancient warfare";
+    description = "Free, open-source game of ancient warfare";
     homepage = "https://play0ad.com/";
     license = with licenses; [
-      gpl2 lgpl21 mit cc-by-sa-30
+      gpl2Plus
+      lgpl21
+      mit
+      cc-by-sa-30
       licenses.zlib # otherwise masked by pkgs.zlib
     ];
     maintainers = with maintainers; [ chvp ];
     platforms = subtractLists platforms.i686 platforms.linux;
+    mainProgram = "0ad";
   };
 }

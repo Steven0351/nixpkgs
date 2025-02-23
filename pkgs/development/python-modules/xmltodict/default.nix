@@ -1,28 +1,35 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, coverage
-, nose
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "xmltodict";
-  version = "0.12.0";
+  version = "0.14.2";
+  pyproject = true;
+
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "50d8c638ed7ecb88d90561beedbf720c9b4e851a9fa6c47ebd64e99d166d8a21";
+    hash = "sha256-IB58KLshDjdJmdHd5jgpI6sO0ail+u7OSKtSW3gQpVM=";
   };
 
-  checkInputs = [ coverage nose ];
+  build-system = [ setuptools ];
 
-  checkPhase = ''
-    nosetests
-  '';
+  nativeCheckInputs = [ pytestCheckHook ];
 
-  meta = {
+  pythonImportsCheck = [ "xmltodict" ];
+
+  meta = with lib; {
     description = "Makes working with XML feel like you are working with JSON";
     homepage = "https://github.com/martinblech/xmltodict";
-    license = lib.licenses.mit;
+    changelog = "https://github.com/martinblech/xmltodict/blob/v${version}/CHANGELOG.md";
+    license = licenses.mit;
+    maintainers = [ ];
   };
 }

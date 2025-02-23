@@ -1,25 +1,38 @@
-{ lib, fetchFromGitHub, pythonPackages, opencv3 }:
+{
+  lib,
+  fetchFromGitHub,
+  pythonPackages,
+  opencv4,
+}:
 
 let
-  opencv3_ = pythonPackages.toPythonModule (opencv3.override {
-    inherit pythonPackages;
-    enablePython = true;
-    enableFfmpeg = true;
-  });
-in pythonPackages.buildPythonApplication rec {
+  opencv4_ = pythonPackages.toPythonModule (
+    opencv4.override {
+      inherit pythonPackages;
+      enablePython = true;
+      enableFfmpeg = true;
+    }
+  );
+in
+pythonPackages.buildPythonApplication rec {
   pname = "video2midi";
-  version = "0.4.0.2";
+  version = "0.4.9";
 
   format = "other";
 
   src = fetchFromGitHub {
     owner = "svsdval";
     repo = pname;
-    rev = version;
-    sha256 = "174ijn8bc306529scd23szvgx1apanm2qmwk4lwmi64rhkm6dapx";
+    tag = version;
+    sha256 = "sha256-mjqlNUCEiP5dQS0a8HAejOJyEvY6jGFJFpVcnzU2Vds=";
   };
 
-  propagatedBuildInputs = with pythonPackages; [ opencv3_ midiutil pygame pyopengl ];
+  propagatedBuildInputs = with pythonPackages; [
+    opencv4_
+    midiutil
+    pygame
+    pyopengl
+  ];
 
   installPhase = ''
     install -Dm755 v2m.py $out/bin/v2m.py
@@ -28,8 +41,9 @@ in pythonPackages.buildPythonApplication rec {
   meta = with lib; {
     description = "Youtube synthesia video to midi conversion tool";
     homepage = src.meta.homepage;
-    license = licenses.gpl3;
+    license = licenses.gpl3Only;
     maintainers = [ ];
     platforms = platforms.linux;
+    mainProgram = "v2m.py";
   };
 }

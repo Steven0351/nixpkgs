@@ -1,16 +1,17 @@
-{ lib
-, aiohttp
-, asynctest
-, buildPythonPackage
-, fetchFromGitHub
-, pytest-asyncio
-, pytestCheckHook
-, pythonOlder
+{
+  lib,
+  aiohttp,
+  asynctest,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pytest-asyncio,
+  pytestCheckHook,
+  pythonOlder,
 }:
 
 buildPythonPackage rec {
   pname = "pymelcloud";
-  version = "2.5.6";
+  version = "2.11.0";
   format = "setuptools";
 
   disabled = pythonOlder "3.8";
@@ -19,22 +20,20 @@ buildPythonPackage rec {
     owner = "vilppuvuorinen";
     repo = pname;
     rev = "v${version}";
-    sha256 = "sha256-QXOL3MftNibo1wUjz/KTQLNDk7pWL9VH/wd7LpEJOmE=";
+    sha256 = "1q6ny58cn9qy86blxbk6l2iklab7y11b734l7yb1bp35dmy27w26";
   };
 
-  propagatedBuildInputs = [
-    aiohttp
-  ];
+  propagatedBuildInputs = [ aiohttp ];
 
-  checkInputs = [
+  doCheck = pythonOlder "3.11"; # asynctest is unsupported on python3.11
+
+  nativeCheckInputs = [
     asynctest
     pytest-asyncio
     pytestCheckHook
   ];
 
-  pythonImportsCheck = [
-    "pymelcloud"
-  ];
+  pythonImportsCheck = [ "pymelcloud" ];
 
   meta = with lib; {
     description = "Python module for interacting with MELCloud";

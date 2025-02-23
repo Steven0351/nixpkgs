@@ -5,48 +5,87 @@
 , libkrb5
 , zlib
 , openssl
+, callPackage
 }:
 
 buildDotnetModule rec {
-  pname = "archisteamfarm";
-  version = "5.1.5.3";
+  pname = "ArchiSteamFarm";
+  # nixpkgs-update: no auto update
+  version = "6.1.2.3";
 
   src = fetchFromGitHub {
-    owner = "justarchinet";
-    repo = pname;
+    owner = "JustArchiNET";
+    repo = "ArchiSteamFarm";
     rev = version;
-    sha256 = "sha256-H038maKHZujmbKhbi8fxsKR/tcSPrcl9L5xnr77yyXg=";
+    hash = "sha256-FYh54KE42DizwpleBquDP7CNLHJySSz5pjsfjpn63u8=";
   };
 
-  dotnet-runtime = dotnetCorePackages.aspnetcore_5_0;
-  nugetDeps = ./deps.nix;
+  dotnet-runtime = dotnetCorePackages.aspnetcore_9_0;
+  dotnet-sdk = dotnetCorePackages.sdk_9_0;
+
+  nugetDeps = ./deps.json;
 
   projectFile = "ArchiSteamFarm.sln";
-  executables = [ "ArchiSteamFarm" ];
+  executable = "ArchiSteamFarm";
+
+  enableParallelBuilding = false;
+
+  useAppHost = false;
+  dotnetFlags = [
+    # useAppHost doesn't explicitly disable this
+    "-p:UseAppHost=false"
+    "-p:RuntimeIdentifiers="
+  ]
+  ;
+  dotnetBuildFlags = [
+    "--framework=net9.0"
+  ];
+  dotnetInstallFlags = dotnetBuildFlags;
 
   runtimeDeps = [ libkrb5 zlib openssl ];
-
-  # Without this, it attempts to write to the store even though the `--path` flag is supplied.
-  patches = [ ./mutable-customdir.patch ];
 
   doCheck = true;
 
   preInstall = ''
+    dotnetProjectFiles=(ArchiSteamFarm)
+
     # A mutable path, with this directory tree must be set. By default, this would point at the nix store causing errors.
     makeWrapperArgs+=(
-      --add-flags "--path ~/.config/archisteamfarm"
-      --run "mkdir -p ~/.config/archisteamfarm/{config,logs,plugins}"
-      --run "cd ~/.config/archisteamfarm"
+      --run 'mkdir -p ~/.config/archisteamfarm/{config,logs,plugins}'
+      --set "ASF_PATH" "~/.config/archisteamfarm"
     )
   '';
 
-  passthru.updateScript = ./updater.sh;
+  postInstall = ''
+    buildPlugin() {
+      echo "Publishing plugin $1"
+      dotnet publish $1 -p:ContinuousIntegrationBuild=true -p:Deterministic=true \
+        --output $out/lib/ArchiSteamFarm/plugins/$1 --configuration Release \
+        $dotnetFlags $dotnetInstallFlags
+    }
+
+    buildPlugin ArchiSteamFarm.OfficialPlugins.ItemsMatcher
+    buildPlugin ArchiSteamFarm.OfficialPlugins.MobileAuthenticator
+    buildPlugin ArchiSteamFarm.OfficialPlugins.Monitoring
+    buildPlugin ArchiSteamFarm.OfficialPlugins.SteamTokenDumper
+
+    chmod +x $out/lib/ArchiSteamFarm/ArchiSteamFarm.dll
+    wrapDotnetProgram $out/lib/ArchiSteamFarm/ArchiSteamFarm.dll $out/bin/ArchiSteamFarm
+    substituteInPlace $out/bin/ArchiSteamFarm \
+      --replace-fail "exec " "exec dotnet "
+  '';
+
+  passthru = {
+    # nix-shell maintainers/scripts/update.nix --argstr package ArchiSteamFarm
+    updateScript = ./update.sh;
+    ui = callPackage ./web-ui { };
+  };
 
   meta = with lib; {
     description = "Application with primary purpose of idling Steam cards from multiple accounts simultaneously";
     homepage = "https://github.com/JustArchiNET/ArchiSteamFarm";
     license = licenses.asl20;
-    platforms = dotnetCorePackages.aspnetcore_5_0.meta.platforms;
-    maintainers = with maintainers; [ SuperSandro2000 lom ];
+    mainProgram = "ArchiSteamFarm";
+    maintainers = with maintainers; [ SuperSandro2000 ];
   };
 }

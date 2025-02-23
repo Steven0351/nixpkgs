@@ -1,66 +1,119 @@
-{ lib, buildPythonPackage, fetchFromGitHub, xdg-utils
-, requests, filetype, pyparsing, configparser, arxiv2bib
-, pyyaml, chardet, beautifulsoup4, colorama, bibtexparser
-, click, python-slugify, habanero, isbnlib, typing-extensions
-, prompt-toolkit, pygments, stevedore, tqdm, lxml
-, python-doi, isPy3k, pytest-cov
-#, optional, dependencies
-, whoosh, pytest
-, stdenv
-}:
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
 
+  # build-system
+  hatchling,
+
+  # dependencies
+  arxiv,
+  beautifulsoup4,
+  bibtexparser,
+  click,
+  colorama,
+  dominate,
+  filetype,
+  habanero,
+  isbnlib,
+  lxml,
+  platformdirs,
+  prompt-toolkit,
+  pygments,
+  pyparsing,
+  python-doi,
+  python-slugify,
+  pyyaml,
+  requests,
+  stevedore,
+
+  # tests
+  docutils,
+  git,
+  pytestCheckHook,
+  sphinx,
+  sphinx-click,
+}:
 buildPythonPackage rec {
   pname = "papis";
-  version = "0.11.1";
-  disabled = !isPy3k;
+  version = "0.14";
+  pyproject = true;
 
-  # Missing tests on Pypi
   src = fetchFromGitHub {
     owner = "papis";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "0bbkjyw1fsvvp0380l404h2lys8ib4xqga5s6401k1y1hld28nl6";
+    repo = "papis";
+    tag = "v${version}";
+    hash = "sha256-UpZoMYk4URN8tSFGIynVzWMk+9S0izROAgbx6uI2cN8=";
   };
 
-  propagatedBuildInputs = [
-    requests filetype pyparsing configparser arxiv2bib
-    pyyaml chardet beautifulsoup4 colorama bibtexparser
-    click python-slugify habanero isbnlib
-    prompt-toolkit pygments typing-extensions
-    stevedore tqdm lxml
+  build-system = [ hatchling ];
+
+  dependencies = [
+    arxiv
+    beautifulsoup4
+    bibtexparser
+    click
+    colorama
+    dominate
+    filetype
+    habanero
+    isbnlib
+    lxml
+    platformdirs
+    prompt-toolkit
+    pygments
+    pyparsing
     python-doi
-    # optional dependencies
-    whoosh
+    python-slugify
+    pyyaml
+    requests
+    stevedore
   ];
 
   postPatch = ''
-    substituteInPlace setup.py \
-      --replace "lxml<=4.3.5" "lxml~=4.3" \
-      --replace "isbnlib>=3.9.1,<3.10" "isbnlib~=3.9" \
-      --replace "python-slugify>=1.2.6,<4" "python-slugify"
+    substituteInPlace pyproject.toml \
+      --replace-fail "--cov=papis" ""
   '';
 
-  doCheck = !stdenv.isDarwin;
+  pythonImportsCheck = [ "papis" ];
 
-  checkInputs = ([
-    pytest pytest-cov
-  ]) ++ [
-    xdg-utils
+  nativeCheckInputs = [
+    docutils
+    git
+    pytestCheckHook
+    sphinx
+    sphinx-click
   ];
 
-  # most of the downloader tests and 4 other tests require a network connection
-  # test_export_yaml and test_citations check for the exact output produced by pyyaml 3.x and
-  # fail with 5.x
-  checkPhase = ''
-    HOME=$(mktemp -d) pytest papis tests --ignore tests/downloaders \
-      -k "not test_get_data and not test_doi_to_data and not test_general and not get_document_url \
-      and not test_validate_arxivid and not test_downloader_getter and not match"
+  preCheck = ''
+    export HOME=$(mktemp -d);
   '';
+
+  pytestFlagsArray = [
+    "papis"
+    "tests"
+  ];
+
+  disabledTestPaths = [
+    # Require network access
+    "tests/downloaders"
+    "papis/downloaders/usenix.py"
+  ];
+
+  disabledTests = [
+    # Require network access
+    "test_yaml_unicode_dump"
+  ];
 
   meta = {
     description = "Powerful command-line document and bibliography manager";
-    homepage = "https://papis.readthedocs.io/en/latest/";
-    license = lib.licenses.gpl3;
-    maintainers = with lib.maintainers; [ nico202 teto ];
+    mainProgram = "papis";
+    homepage = "https://papis.readthedocs.io/";
+    changelog = "https://github.com/papis/papis/blob/v${version}/CHANGELOG.md";
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [
+      nico202
+      teto
+    ];
   };
 }

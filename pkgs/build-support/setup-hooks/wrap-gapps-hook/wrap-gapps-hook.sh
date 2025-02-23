@@ -14,10 +14,6 @@ gappsWrapperArgsHook() {
         gappsWrapperArgs+=(--set GDK_PIXBUF_MODULE_FILE "$GDK_PIXBUF_MODULE_FILE")
     fi
 
-    if [ -n "$XDG_ICON_DIRS" ]; then
-        gappsWrapperArgs+=(--prefix XDG_DATA_DIRS : "$XDG_ICON_DIRS")
-    fi
-
     if [ -n "$GSETTINGS_SCHEMAS_PATH" ]; then
         gappsWrapperArgs+=(--prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH")
     fi
@@ -32,13 +28,13 @@ gappsWrapperArgsHook() {
     fi
 
     for v in ${wrapPrefixVariables:-} GST_PLUGIN_SYSTEM_PATH_1_0 GI_TYPELIB_PATH GRL_PLUGIN_PATH; do
-        if [ -n "${!v}" ]; then
+        if [ -n "${!v:-}" ]; then
             gappsWrapperArgs+=(--prefix "$v" : "${!v}")
         fi
     done
 }
 
-preFixupPhases+=" gappsWrapperArgsHook"
+appendToVar preFixupPhases gappsWrapperArgsHook
 
 wrapGApp() {
     local program="$1"

@@ -1,49 +1,120 @@
-{ stdenv
-, lib
-, fetchPypi
-, buildPythonPackage
-, isPy3k
-, pythonOlder
-, greenlet
-, importlib-metadata
-, mock
-, pysqlite ? null
-, pytestCheckHook
+{
+  lib,
+  isPyPy,
+  pythonOlder,
+  fetchFromGitHub,
+  buildPythonPackage,
+
+  # build
+  cython,
+  setuptools,
+
+  # propagates
+  greenlet,
+  typing-extensions,
+
+  # optionals
+  aiomysql,
+  # TODO: aioodbc
+  aiosqlite,
+  asyncmy,
+  asyncpg,
+  cx-oracle,
+  mariadb,
+  mypy,
+  mysql-connector,
+  mysqlclient,
+  oracledb,
+  pg8000,
+  psycopg,
+  psycopg2,
+  psycopg2cffi,
+  pymssql,
+  pymysql,
+  pyodbc,
+  sqlcipher3,
+  types-greenlet,
+
+  # tests
+  mock,
+  pytest-xdist,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
-  pname = "SQLAlchemy";
-  version = "1.4.27";
+  pname = "sqlalchemy";
+  version = "2.0.38";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-12g1na6zqGZE84VMZlnkSWo+a7orRlHsyHznrUFbMgw=";
+  disabled = pythonOlder "3.7";
+
+  src = fetchFromGitHub {
+    owner = "sqlalchemy";
+    repo = "sqlalchemy";
+    tag = "rel_${lib.replaceStrings [ "." ] [ "_" ] version}";
+    hash = "sha256-If4PEBD67pm0fs1TZkJTKNuFPRfc6SxIEm94ymyDvow=";
   };
 
-  propagatedBuildInputs = [
-    greenlet
-  ] ++ lib.optionals (pythonOlder "3.8") [
-    importlib-metadata
-  ];
-
-  checkInputs = [
-    pytestCheckHook
-    mock
-  ] ++ lib.optional (!isPy3k) pysqlite;
-
-  postInstall = ''
-    sed -e 's:--max-worker-restart=5::g' -i setup.cfg
+  postPatch = ''
+    sed -i '/tag_build = dev/d' setup.cfg
   '';
 
-  # disable mem-usage tests on mac, has trouble serializing pickle files
-  disabledTests = lib.optionals stdenv.isDarwin [
-    "MemUsageWBackendTest"
-    "MemUsageTest"
+  build-system = [ setuptools ] ++ lib.optionals (!isPyPy) [ cython ];
+
+  dependencies = [
+    greenlet
+    typing-extensions
+  ];
+
+  optional-dependencies = lib.fix (self: {
+    asyncio = [ greenlet ];
+    mypy = [
+      mypy
+      types-greenlet
+    ];
+    mssql = [ pyodbc ];
+    mssql_pymysql = [ pymssql ];
+    mssql_pyodbc = [ pyodbc ];
+    mysql = [ mysqlclient ];
+    mysql_connector = [ mysql-connector ];
+    mariadb_connector = [ mariadb ];
+    oracle = [ cx-oracle ];
+    oracle_oracledb = [ oracledb ];
+    postgresql = [ psycopg2 ];
+    postgresql_pg8000 = [ pg8000 ];
+    postgresql_asyncpg = [ asyncpg ] ++ self.asyncio;
+    postgresql_psycopg2binary = [ psycopg2 ];
+    postgresql_psycopg2cffi = [ psycopg2cffi ];
+    postgresql_psycopg = [ psycopg ];
+    postgresql_psycopgbinary = [ psycopg ];
+    pymysql = [ pymysql ];
+    aiomysql = [ aiomysql ] ++ self.asyncio;
+    # TODO: aioodbc
+    asyncmy = [ asyncmy ] ++ self.asyncio;
+    aiosqlite = [ aiosqlite ] ++ self.asyncio;
+    sqlcipher = [ sqlcipher3 ];
+  });
+
+  nativeCheckInputs = [
+    pytest-xdist
+    pytestCheckHook
+    mock
+  ];
+
+  disabledTestPaths = [
+    # typing correctness, not interesting
+    "test/ext/mypy"
+    "test/typing"
+    # slow and high memory usage, not interesting
+    "test/aaa_profiling"
   ];
 
   meta = with lib; {
+    changelog = "https://github.com/sqlalchemy/sqlalchemy/releases/tag/rel_${
+      builtins.replaceStrings [ "." ] [ "_" ] version
+    }";
+    description = "Python SQL toolkit and Object Relational Mapper";
     homepage = "http://www.sqlalchemy.org/";
-    description = "A Python SQL toolkit and Object Relational Mapper";
     license = licenses.mit;
   };
 }

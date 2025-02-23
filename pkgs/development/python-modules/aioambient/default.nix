@@ -1,71 +1,65 @@
-{ lib
-, aiohttp
-, aresponses
-, asynctest
-, buildPythonPackage
-, fetchFromGitHub
-, poetry-core
-, pytest-aiohttp
-, pytest-asyncio
-, pytestCheckHook
-, python-engineio
-, python-socketio
-, pythonOlder
-, websockets
+{
+  lib,
+  aiohttp,
+  aresponses,
+  buildPythonPackage,
+  certifi,
+  fetchFromGitHub,
+  poetry-core,
+  pytest-aiohttp,
+  pytest-asyncio,
+  pytestCheckHook,
+  python-engineio,
+  python-socketio,
+  pythonOlder,
+  websockets,
+  yarl,
 }:
 
 buildPythonPackage rec {
   pname = "aioambient";
-  version = "2021.12.0";
-  format = "pyproject";
+  version = "2025.02.0";
+  pyproject = true;
 
-  disabled = pythonOlder "3.7";
+  disabled = pythonOlder "3.11";
 
   src = fetchFromGitHub {
     owner = "bachya";
-    repo = pname;
-    rev = version;
-    sha256 = "sha256-nFCLMpkuSVPecKrtJ/z7KuyGw4Z9X79wKXmWsewbxvY=";
+    repo = "aioambient";
+    tag = version;
+    hash = "sha256-F1c2S0c/CWHeCd24Zc8ib3aPR7yj9gCPBJpmpgoddQY=";
   };
 
-  postPatch = ''
-    # https://github.com/bachya/aioambient/pull/97
-    substituteInPlace pyproject.toml \
-      --replace 'websockets = ">=8.1,<10.0"' 'websockets = ">=8.1,<11.0"'
-  '';
+  build-system = [ poetry-core ];
 
-  nativeBuildInputs = [
-    poetry-core
-  ];
-
-  propagatedBuildInputs = [
+  dependencies = [
     aiohttp
+    certifi
     python-engineio
     python-socketio
     websockets
+    yarl
   ];
 
-  checkInputs = [
+  __darwinAllowLocalNetworking = true;
+
+  nativeCheckInputs = [
     aresponses
-    asynctest
     pytest-aiohttp
     pytest-asyncio
     pytestCheckHook
   ];
 
   # Ignore the examples directory as the files are prefixed with test_
-  disabledTestPaths = [
-    "examples/"
-  ];
+  disabledTestPaths = [ "examples/" ];
 
-  pythonImportsCheck = [
-    "aioambient"
-  ];
+  pythonImportsCheck = [ "aioambient" ];
 
   meta = with lib; {
     description = "Python library for the Ambient Weather API";
     homepage = "https://github.com/bachya/aioambient";
-    license = with licenses; [ mit ];
+    changelog = "https://github.com/bachya/aioambient/releases/tag/${version}";
+    license = licenses.mit;
     maintainers = with maintainers; [ fab ];
   };
 }

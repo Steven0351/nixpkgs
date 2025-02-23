@@ -1,19 +1,26 @@
-{ lib, stdenv, fetchFromGitHub, rustPlatform, Security }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  rustPlatform,
+  Security,
+}:
 
 rustPlatform.buildRustPackage rec {
   pname = "htmlq";
-  version = "0.3.0";
+  version = "0.4.0";
 
   src = fetchFromGitHub {
     owner = "mgdm";
     repo = "htmlq";
     rev = "v${version}";
-    sha256 = "sha256-pTw+dsbbFwrPIxCimMsYfyAF2zVeudebxVtMQV1cJnE=";
+    sha256 = "sha256-kZtK2QuefzfxxuE1NjXphR7otr+RYfMif/RSpR6TxY0=";
   };
 
-  cargoSha256 = "sha256-jeoSA7w2bk0R3L+/FDn/b+ddTCqY8zFr/2GCxI7OCzM=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-QUlR6PuOLbeAHzARtTo7Zn7fmjs2ET6TdXT4VgCYEVg=";
 
-  buildInputs = lib.optionals stdenv.isDarwin [ Security ];
+  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [ Security ];
 
   doCheck = false;
 
@@ -21,6 +28,10 @@ rustPlatform.buildRustPackage rec {
     description = "Like jq, but for HTML";
     homepage = "https://github.com/mgdm/htmlq";
     license = licenses.mit;
-    maintainers = with maintainers; [ siraben nerdypepper ];
+    maintainers = with maintainers; [
+      siraben
+      nerdypepper
+    ];
+    mainProgram = "htmlq";
   };
 }

@@ -1,29 +1,32 @@
-{ lib, buildPythonPackage, fetchPypi, libmysqlclient }:
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  libmysqlclient,
+  pkg-config,
+}:
 
 buildPythonPackage rec {
   pname = "mysqlclient";
-  version = "2.1.0";
+  version = "2.2.7";
+  format = "setuptools";
 
-  nativeBuildInputs = [
-    libmysqlclient
-  ];
+  nativeBuildInputs = [ pkg-config ];
 
-  buildInputs = [
-    libmysqlclient
-  ];
+  buildInputs = [ libmysqlclient ];
 
   # Tests need a MySQL database
   doCheck = false;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "973235686f1b720536d417bf0a0d39b4ab3d5086b2b6ad5e6752393428c02b12";
+    hash = "sha256-JK4itZQW1fzOfpnJ03VINQtFZbqsgvleFJysbOQWOEU=";
   };
 
   meta = with lib; {
     description = "Python interface to MySQL";
     homepage = "https://github.com/PyMySQL/mysqlclient-python";
-    license = licenses.gpl1;
+    license = licenses.gpl2Only;
     maintainers = with maintainers; [ y0no ];
   };
 }

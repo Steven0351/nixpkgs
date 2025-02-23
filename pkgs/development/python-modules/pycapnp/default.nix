@@ -1,35 +1,42 @@
-{ lib
-, buildPythonPackage
-, capnproto
-, cython
-, fetchFromGitHub
-, isPy27
-, isPyPy
-, pkgconfig
+{
+  lib,
+  buildPythonPackage,
+  capnproto,
+  cython_0,
+  fetchFromGitHub,
+  isPy27,
+  isPyPy,
+  pkgconfig,
 }:
 
 buildPythonPackage rec {
   pname = "pycapnp";
-  version = "1.1.0";
+  version = "2.0.0";
+  format = "setuptools";
   disabled = isPyPy || isPy27;
 
   src = fetchFromGitHub {
     owner = "capnproto";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "1xi6df93ggkpmwckwbi356v7m32zv5qry8s45hvsps66dz438kmi";
+    tag = "v${version}";
+    sha256 = "sha256-SVeBRJMMR1Z8+S+QoiUKGRFGUPS/MlmWLi1qRcGcPoE=";
   };
 
-  buildInputs = [ capnproto cython pkgconfig ];
+  nativeBuildInputs = [
+    cython_0
+    pkgconfig
+  ];
 
-  # Tests disabled due to dependency on jinja and various other libraries.
+  buildInputs = [ capnproto ];
+
+  # Tests depend on schema_capnp which fails to generate
   doCheck = false;
 
   pythonImportsCheck = [ "capnp" ];
 
   meta = with lib; {
-    maintainers = with maintainers; [ cstrahan lukeadams ];
-    license = licenses.bsd2;
     homepage = "https://capnproto.github.io/pycapnp/";
+    maintainers = [ ];
+    license = licenses.bsd2;
   };
 }

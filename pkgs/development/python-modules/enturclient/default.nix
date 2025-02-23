@@ -1,45 +1,47 @@
-{ lib
-, aiohttp
-, async-timeout
-, buildPythonPackage
-, fetchFromGitHub
-, poetry-core
-, pythonOlder
+{
+  lib,
+  aiohttp,
+  async-timeout,
+  buildPythonPackage,
+  fetchFromGitHub,
+  poetry-core,
+  pythonOlder,
+  unittestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "enturclient";
-  version = "0.2.2";
-  disabled = pythonOlder "3.8";
+  version = "0.2.4";
+  pyproject = true;
 
-  format = "pyproject";
+  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "hfurubotten";
     repo = pname;
     rev = "v${version}";
-    sha256 = "1kl44ch8p31pr70yv6na2m0w40frackdwzph9rpb05sc83va701i";
+    hash = "sha256-Y2sBPikCAxumylP1LUy8XgjBRCWaNryn5XHSrRjJIIo=";
   };
 
-  nativeBuildInputs = [
-    poetry-core
-  ];
+  build-system = [ poetry-core ];
 
-  propagatedBuildInputs = [
+  dependencies = [
     aiohttp
     async-timeout
   ];
 
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace 'async_timeout = "^3.0.1"' 'async_timeout = ">=3.0.1"'
-  '';
+  pythonRelaxDeps = [
+    "async_timeout"
+  ];
 
-  # Project has no tests
-  doCheck = false;
+  pythonImportsCheck = [ "enturclient" ];
 
-  pythonImportsCheck = [
-    "enturclient"
+  nativeCheckInputs = [
+    unittestCheckHook
+  ];
+
+  unittestFlagsArray = [
+    "tests/dto/"
   ];
 
   meta = with lib; {

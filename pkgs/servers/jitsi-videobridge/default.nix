@@ -1,11 +1,20 @@
-{ lib, stdenv, fetchurl, makeWrapper, dpkg, jre_headless, nixosTests }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  makeWrapper,
+  dpkg,
+  jre_headless,
+  openssl,
+  nixosTests,
+}:
 
 let
   pname = "jitsi-videobridge2";
-  version = "2.1-570-gb802be83";
+  version = "2.3-204-g26cd91bd";
   src = fetchurl {
     url = "https://download.jitsi.org/stable/${pname}_${version}-1_all.deb";
-    sha256 = "0SLaCIjMN2/+Iushyz8OQpRHHBYVqn6+DpwNGbQEzy4=";
+    sha256 = "bh0WhNPpJcWz+SUWbUn6r5y9EnwKrslTsAPP2Ot9wKY=";
   };
 in
 stdenv.mkDerivation {
@@ -13,9 +22,10 @@ stdenv.mkDerivation {
 
   dontBuild = true;
 
-  unpackCmd = "${dpkg}/bin/dpkg-deb -x $src debcontents";
-
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [
+    dpkg
+    makeWrapper
+  ];
 
   installPhase = ''
     runHook preInstall
@@ -28,9 +38,11 @@ stdenv.mkDerivation {
     mv usr/share/jitsi-videobridge/* $out/share/jitsi-videobridge/
     ln -s $out/share/jitsi-videobridge/jvb.sh $out/bin/jitsi-videobridge
 
-    # work around https://github.com/jitsi/jitsi-videobridge/issues/1547
+    # - work around https://github.com/jitsi/jitsi-videobridge/issues/1547
+    # - make libcrypto.so available at runtime for hardware AES
     wrapProgram $out/bin/jitsi-videobridge \
-      --set VIDEOBRIDGE_GC_TYPE G1GC
+      --set VIDEOBRIDGE_GC_TYPE G1GC \
+      --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ openssl ]}
     runHook postInstall
   '';
 
@@ -41,7 +53,7 @@ stdenv.mkDerivation {
   passthru.updateScript = ./update.sh;
 
   meta = with lib; {
-    description = "A WebRTC compatible video router";
+    description = "WebRTC compatible video router";
     longDescription = ''
       Jitsi Videobridge is an XMPP server component that allows for multiuser video communication.
       Unlike the expensive dedicated hardware videobridges, Jitsi Videobridge does not mix the video
@@ -53,5 +65,6 @@ stdenv.mkDerivation {
     license = licenses.asl20;
     maintainers = teams.jitsi.members;
     platforms = platforms.linux;
+    mainProgram = "jitsi-videobridge";
   };
 }

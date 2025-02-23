@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
@@ -50,12 +55,7 @@ in
       type = types.bool;
     };
 
-    package = mkOption {
-      description = "Elasticsearch package to use.";
-      default = pkgs.elasticsearch;
-      defaultText = literalExpression "pkgs.elasticsearch";
-      type = types.package;
-    };
+    package = mkPackageOption pkgs "elasticsearch" { };
 
     listenAddress = mkOption {
       description = "Elasticsearch listen address.";
@@ -66,7 +66,7 @@ in
     port = mkOption {
       description = "Elasticsearch port to listen for HTTP traffic.";
       default = 9200;
-      type = types.int;
+      type = types.port;
     };
 
     tcp_port = mkOption {
@@ -143,6 +143,17 @@ in
       example = lib.literalExpression "[ pkgs.elasticsearchPlugins.discovery-ec2 ]";
     };
 
+    restartIfChanged = mkOption {
+      type = types.bool;
+      description = ''
+        Automatically restart the service on config change.
+        This can be set to false to defer restarts on a server or cluster.
+        Please consider the security implications of inadvertently running an older version,
+        and the possibility of unexpected behavior caused by inconsistent versions across a cluster when disabling this option.
+      '';
+      default = true;
+    };
+
   };
 
   ###### implementation
@@ -153,6 +164,7 @@ in
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
       path = [ pkgs.inetutils ];
+      inherit (cfg) restartIfChanged;
       environment = {
         ES_HOME = cfg.dataDir;
         ES_JAVA_OPTS = toString cfg.extraJavaOptions;
@@ -163,6 +175,8 @@ in
         User = "elasticsearch";
         PermissionsStartOnly = true;
         LimitNOFILE = "1024000";
+        Restart = "always";
+        TimeoutStartSec = "infinity";
       };
       preStart = ''
         ${optionalString (!config.boot.isContainer) ''
@@ -204,7 +218,7 @@ in
       postStart = ''
         # Make sure elasticsearch is up and running before dependents
         # are started
-        while ! ${pkgs.curl}/bin/curl -sS -f http://localhost:${toString cfg.port} 2>/dev/null; do
+        while ! ${pkgs.curl}/bin/curl -sS -f http://${cfg.listenAddress}:${toString cfg.port} 2>/dev/null; do
           sleep 1
         done
       '';

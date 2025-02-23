@@ -1,38 +1,59 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, pytest
-, pytest-cov
-, numpy
-, scipy
-, cython
-, numba
-, six
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  fetchFromGitHub,
+  numba,
+  numpy,
+  optuna,
+  pytest-cov-stub,
+  pytestCheckHook,
+  pythonOlder,
+  setuptools,
+  scipy,
 }:
 
 buildPythonPackage rec {
   pname = "resampy";
-  version = "0.2.2";
+  version = "0.4.3";
+  pyproject = true;
 
-  # No tests in PyPi Archive
+  disabled = pythonOlder "3.7";
+
   src = fetchFromGitHub {
     owner = "bmcfee";
     repo = pname;
-    rev = version;
-    sha256 = "0qmkxl5sbgh0j73n667vyi7ywzh09iaync91yp1j5rrcmwsn0qfs";
+    tag = version;
+    hash = "sha256-LOWpOPAEK+ga7c3bR15QvnHmON6ARS1Qee/7U/VMlTY=";
   };
 
-  checkInputs = [ pytest pytest-cov ];
-  propagatedBuildInputs = [ numpy scipy cython numba six ];
+  build-system = [ setuptools ];
 
-  checkPhase = ''
-    pytest tests
-  '';
+  dependencies = [
+    numpy
+    numba
+  ];
+
+  optional-dependencies.design = [ optuna ];
+
+  nativeCheckInputs = [
+    pytest-cov-stub
+    pytestCheckHook
+    scipy
+  ] ++ optional-dependencies.design;
+
+  disabledTests = lib.optionals (stdenv.hostPlatform.system == "aarch64-linux") [
+    # crashing the interpreter
+    "test_quality_sine_parallel"
+    "test_resample_nu_quality_sine_parallel"
+  ];
+
+  pythonImportsCheck = [ "resampy" ];
 
   meta = with lib; {
-    homepage = "https://github.com/bmcfee/resampy";
     description = "Efficient signal resampling";
+    homepage = "https://github.com/bmcfee/resampy";
     license = licenses.isc;
+    maintainers = [ ];
   };
-
 }

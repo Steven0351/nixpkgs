@@ -1,38 +1,50 @@
-{ lib, stdenv, fetchFromGitHub, ocaml, findlib, camlpdf, ncurses }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  ocaml,
+  findlib,
+  camlpdf,
+}:
 
-if !lib.versionAtLeast ocaml.version "4.10"
-then throw "cpdf is not available for OCaml ${ocaml.version}"
+if lib.versionOlder ocaml.version "4.10" then
+  throw "cpdf is not available for OCaml ${ocaml.version}"
 else
 
-let version = "2.4"; in
+  stdenv.mkDerivation rec {
+    pname = "ocaml${ocaml.version}-cpdf";
+    version = "2.8";
 
-stdenv.mkDerivation {
-  name = "ocaml${ocaml.version}-cpdf-${version}";
+    src = fetchFromGitHub {
+      owner = "johnwhitington";
+      repo = "cpdf-source";
+      rev = "v${version}";
+      hash = "sha256-DvTY5EQcvnL76RlQTcVqBiycqbCdGQCXzarSMH2P/pg=";
+    };
 
-  src = fetchFromGitHub {
-    owner = "johnwhitington";
-    repo = "cpdf-source";
-    rev = "v${version}";
-    sha256 = "1a8lmfc76dr8x6pxgm4aypbys02pfma9yh4z3l1qxp2q1909na5l";
-  };
+    nativeBuildInputs = [
+      ocaml
+      findlib
+    ];
+    propagatedBuildInputs = [ camlpdf ];
 
-  buildInputs = [ ocaml findlib ncurses ];
-  propagatedBuildInputs = [ camlpdf ];
+    strictDeps = true;
 
-  preInstall = ''
-    mkdir -p $OCAMLFIND_DESTDIR
-    mkdir -p $out/bin
-    cp cpdf $out/bin
-    mkdir -p $out/share/
-    cp -r doc $out/share
-    cp cpdfmanual.pdf $out/share/doc/cpdf/
-  '';
+    preInstall = ''
+      mkdir -p $OCAMLFIND_DESTDIR
+      mkdir -p $out/bin
+      cp cpdf $out/bin
+      mkdir -p $out/share/
+      cp -r doc $out/share
+      cp cpdfmanual.pdf $out/share/doc/cpdf/
+    '';
 
-  meta = with lib; {
-    homepage = "https://www.coherentpdf.com/";
-    platforms = ocaml.meta.platforms or [];
-    description = "PDF Command Line Tools";
-    license = licenses.unfree;
-    maintainers = [ maintainers.vbgl ];
-  };
-}
+    meta = with lib; {
+      description = "PDF Command Line Tools";
+      homepage = "https://www.coherentpdf.com/";
+      license = licenses.agpl3Only;
+      maintainers = [ maintainers.vbgl ];
+      mainProgram = "cpdf";
+      inherit (ocaml.meta) platforms;
+    };
+  }

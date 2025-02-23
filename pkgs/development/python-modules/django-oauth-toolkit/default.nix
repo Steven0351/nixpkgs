@@ -1,27 +1,69 @@
-{ lib, buildPythonPackage, fetchFromGitHub
-, django, requests, oauthlib
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+
+  # propagates
+  django,
+  jwcrypto,
+  requests,
+  oauthlib,
+
+  # tests
+  djangorestframework,
+  pytest-cov-stub,
+  pytest-django,
+  pytest-mock,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "django-oauth-toolkit";
-  version = "1.2.0";
+  version = "3.0.1";
+  pyproject = true;
 
   src = fetchFromGitHub {
     owner = "jazzband";
-    repo = pname;
-    rev = version;
-    sha256 = "1zbksxrcxlqnapmlvx4rgvpqc4plgnq0xnf45cjwzwi1626zs8g6";
+    repo = "django-oauth-toolkit";
+    tag = version;
+    hash = "sha256-Ya0KlX+vtLXN2Fgk0Gv7KemJCUTwkaH+4GQA1ByUlBY=";
   };
 
-  propagatedBuildInputs = [ django requests oauthlib ];
+  build-system = [ setuptools ];
 
-  # django.core.exceptions.ImproperlyConfigured: Requested setting OAUTH2_PROVIDER, but settings are not configured. You must either define the environment variable DJANGO_SETTINGS_MODULE or call settings.configure() before accessing settings
-  doCheck = false;
+  dependencies = [
+    django
+    jwcrypto
+    oauthlib
+    requests
+  ];
 
-  meta = with lib; {
+  preCheck = ''
+    export DJANGO_SETTINGS_MODULE=tests.settings
+  '';
+
+  # xdist is disabled right now because it can cause race conditions on high core machines
+  # https://github.com/jazzband/django-oauth-toolkit/issues/1300
+  nativeCheckInputs = [
+    djangorestframework
+    pytest-cov-stub
+    pytest-django
+    # pytest-xdist
+    pytest-mock
+    pytestCheckHook
+  ];
+
+  disabledTests = [
+    # Failed to get a valid response from authentication server. Status code: 404, Reason: Not Found.
+    "test_response_when_auth_server_response_return_404"
+  ];
+
+  meta = {
     description = "OAuth2 goodies for the Djangonauts";
     homepage = "https://github.com/jazzband/django-oauth-toolkit";
-    license = licenses.bsd2;
-    maintainers = with maintainers; [ mmai ];
+    changelog = "https://github.com/jazzband/django-oauth-toolkit/django-filer/blob/${version}/CHANGELOG.md";
+    license = lib.licenses.bsd2;
+    maintainers = with lib.maintainers; [ mmai ];
   };
 }

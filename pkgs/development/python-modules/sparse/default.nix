@@ -1,41 +1,65 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, isPy3k
-, numba
-, numpy
-, scipy
-  # Test Inputs
-, pytestCheckHook
-, dask
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools,
+  setuptools-scm,
+
+  # dependencies
+  numba,
+  numpy,
+  scipy,
+
+  # tests
+  dask,
+  pytest-cov-stub,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "sparse";
-  version = "0.13.0";
+  version = "0.15.5";
+  pyproject = true;
 
-  disabled = !isPy3k;
-
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "685dc994aa770ee1b23f2d5392819c8429f27958771f8dceb2c4fb80210d5915";
+  src = fetchFromGitHub {
+    owner = "pydata";
+    repo = "sparse";
+    tag = version;
+    hash = "sha256-W4rcq7G/bQsT9oTLieOzWNst5LnIAelRMbm+uUPeQgs=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [
+    setuptools
+    setuptools-scm
+  ];
+
+  dependencies = [
     numba
     numpy
     scipy
   ];
-  checkInputs = [ pytestCheckHook dask ];
+
+  nativeCheckInputs = [
+    dask
+    pytest-cov-stub
+    pytestCheckHook
+  ];
 
   pythonImportsCheck = [ "sparse" ];
 
-  meta = with lib; {
+  meta = {
     description = "Sparse n-dimensional arrays computations";
-    homepage = "https://sparse.pydata.org/en/stable/";
+    homepage = "https://sparse.pydata.org/";
     changelog = "https://sparse.pydata.org/en/stable/changelog.html";
     downloadPage = "https://github.com/pydata/sparse/releases/tag/${version}";
-    license = licenses.bsd3;
-    maintainers = [ maintainers.costrouc ];
+    license = lib.licenses.bsd3;
+    maintainers = with lib.maintainers; [ GaetanLepage ];
+    badPlatforms = [
+      # Most tests fail with: Fatal Python error: Segmentation fault
+      # numba/typed/typedlist.py", line 344 in append
+      "aarch64-linux"
+    ];
   };
 }

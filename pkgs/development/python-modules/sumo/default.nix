@@ -1,32 +1,42 @@
-{ lib, buildPythonPackage, fetchFromGitHub
-, pythonOlder
-, h5py
-, matplotlib
-, numpy
-, phonopy
-, pymatgen
-, scipy
-, seekpath
-, spglib
-, castepxbin
-, pytestCheckHook
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pythonOlder,
+  setuptools,
+  spglib,
+  numpy,
+  scipy,
+  h5py,
+  pymatgen,
+  phonopy,
+  matplotlib,
+  seekpath,
+  castepxbin,
+  colormath,
+  importlib-resources,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "sumo";
-  version = "2.2.5";
+  version = "2.3.10";
+  pyproject = true;
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.8";
 
-  # No tests in Pypi tarball
   src = fetchFromGitHub {
     owner = "SMTG-UCL";
     repo = "sumo";
-    rev = "v${version}";
-    sha256 = "1vwqyv215yf51j1278cn7l8mpqmy1grm9j7z3hxjlz4w65cff324";
+    tag = "v${version}";
+    hash = "sha256-WoOW+JPo5x9V6LN+e8Vf3Q3ohHhQVK81s0Qk7oPn1Tk=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [
+    setuptools
+  ];
+
+  dependencies = [
     spglib
     numpy
     scipy
@@ -36,14 +46,21 @@ buildPythonPackage rec {
     matplotlib
     seekpath
     castepxbin
+    colormath
+    importlib-resources
   ];
 
-  checkInputs = [ pytestCheckHook ];
+  nativeCheckInputs = [
+    pytestCheckHook
+  ];
 
-  meta = with lib; {
+  pythonImportsCheck = [ "sumo" ];
+
+  meta = {
     description = "Toolkit for plotting and analysis of ab initio solid-state calculation data";
     homepage = "https://github.com/SMTG-UCL/sumo";
-    license = licenses.mit;
-    maintainers = with maintainers; [ psyanticy ];
+    changelog = "https://github.com/SMTG-Bham/sumo/releases/tag/v${version}";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ psyanticy ];
   };
 }

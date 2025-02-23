@@ -1,91 +1,125 @@
-{ stdenv,
+# For upstream versions, download links, and change logs see https://www.qoppa.com/pdfstudio/versions
+#
+# PDF Studio license is for a specific year, so we need different packages for different years.
+# All versions of PDF Studio Viewer are free, so we package only the latest year.
+# Thus, packages are pdfstudioviewer, pdfstudio2021, pdfstudio2022, etc.
+# Variables:
+# - program is either "pdfstudio" or "pdfstudioviewer", defaults to "pdfstudio".
+# - year identifies the year portion of the version, defaults to most recent year.
+# - pname is either "pdfstudio${year}" or "pdfstudioviewer".
+
+{
   lib,
-  makeWrapper,
+  stdenv,
+  program ? "pdfstudio",
+  year ? "2024",
   fetchurl,
-  dpkg,
-  makeDesktopItem,
-  copyDesktopItems,
-  autoPatchelfHook,
-  gst_all_1,
-  sane-backends,
-  xorg,
-  gnome2,
-  alsa-lib,
-  libgccjit,
-  jdk11
-  }:
-
+  callPackage,
+  jdk11,
+  jdk17,
+}:
 let
-  year = "2021";
-  major = "1";
-  minor = "1";
-in stdenv.mkDerivation rec {
-  pname = "pdfstudio";
-  version = "${year}.${major}.${minor}";
-  autoPatchelfIgnoreMissingDeps = true;
-
-  src = fetchurl {
-    url = "https://download.qoppa.com/${pname}/v${year}/PDFStudio_v${year}_${major}_${minor}_linux64.deb";
-    sha256 = "089jfpbsxwjhx245g8svlmg213kny3z5nl6ra1flishnrsfjjcxb";
-  };
-
-  nativeBuildInputs = [
-    gst_all_1.gst-libav
-    sane-backends
-    xorg.libXxf86vm
-    xorg.libXtst
-    gnome2.libgtkhtml
-    alsa-lib
-    libgccjit
-    autoPatchelfHook
-    makeWrapper
-    dpkg
-    copyDesktopItems
-    jdk11 # only for unpacking .jar.pack files
-  ];
-
-  desktopItems = [(makeDesktopItem {
-       name = "${pname}${year}";
-       desktopName = "PDF Studio";
-       genericName = "View and edit PDF files";
-       exec = "${pname} %f";
-       icon = "${pname}${year}";
-       comment = "Views and edits PDF files";
-       mimeType = "application/pdf";
-       categories = "Office";
-       type = "Application";
-       terminal = false;
-  })];
-
-  unpackPhase = "dpkg-deb -x $src .";
-  dontConfigure = true;
-  dontBuild = true;
-
-  installPhase = ''
-    runHook preInstall
-
-    mkdir -p $out/bin
-    mkdir -p $out/share
-    mkdir -p $out/share/applications
-    mkdir -p $out/share/pixmaps
-    cp -r opt/${pname}${year} $out/share/
-    ln -s $out/share/${pname}${year}/.install4j/${pname}${year}.png  $out/share/pixmaps/
-    makeWrapper $out/share/${pname}${year}/${pname}${year} $out/bin/${pname}
-
-    #Unpack jar files. Otherwise pdfstudio does this and fails due to read-only FS.
-    for pfile in $out/share/${pname}${year}/jre/lib/{,ext/}*.jar.pack; do
-      jar_file=`echo "$pfile" | awk '{ print substr($0,1,length($0)-5) }'`
-      unpack200 -r "$pfile" "$jar_file"
-    done
-
-    runHook postInstall
+  longDescription = ''
+    PDF Studio is an easy to use, full-featured PDF editing software. This is the standard/pro edition, which requires a license. For the free PDF Studio Viewer see the package pdfstudioviewer.
   '';
-
-  meta = with lib; {
-    homepage = "https://www.qoppa.com/pdfstudio/";
-    description = "An easy to use, full-featured PDF editing software";
-    license = licenses.unfree;
-    platforms = platforms.linux;
-    maintainers = [ maintainers.pwoelfel ];
+  pname = if (program == "pdfstudio") then "${program}${year}" else program;
+  desktopName = if (program == "pdfstudio") then "PDF Studio ${year}" else "PDF Studio Viewer";
+  dot2dash = str: builtins.replaceStrings [ "." ] [ "_" ] str;
+in
+{
+  pdfstudioviewer = callPackage ./common.nix rec {
+    inherit
+      desktopName
+      pname
+      program
+      year
+      ;
+    version = "${year}.0.1";
+    longDescription = ''
+      PDF Studio Viewer is an easy to use, full-featured PDF editing software. This is the free edition. For the standard/pro edition, see the package pdfstudio.
+    '';
+    src = fetchurl {
+      url = "https://web.archive.org/web/20241201121627/https://download.qoppa.com/pdfstudioviewer/PDFStudioViewer_linux64.deb";
+      hash = "sha256-hxReGuyGsBiEr7wWxWzQUQvxk11sgF9HkJ07L9i+e+0=";
+    };
+    jdk = jdk17;
   };
+
+  pdfstudio2021 = callPackage ./common.nix rec {
+    inherit
+      desktopName
+      longDescription
+      pname
+      program
+      year
+      ;
+    version = "${year}.2.2";
+    src = fetchurl {
+      url = "https://download.qoppa.com/pdfstudio/v${year}/PDFStudio_v${dot2dash version}_linux64.deb";
+      hash = "sha256-HdkwRMqwquAaW6l3AukGReFtw2f5n36tZ8vXo6QiPvU=";
+    };
+    extraBuildInputs = [
+      (lib.getLib stdenv.cc.cc) # for libstdc++.so.6 and libgomp.so.1
+    ];
+    jdk = jdk11;
+  };
+
+  pdfstudio2022 = callPackage ./common.nix rec {
+    inherit
+      desktopName
+      longDescription
+      pname
+      program
+      year
+      ;
+    version = "${year}.2.5";
+    src = fetchurl {
+      url = "https://download.qoppa.com/pdfstudio/v${year}/PDFStudio_v${dot2dash version}_linux64.deb";
+      hash = "sha256-3faZyWUnFe//S+gOskWhsZ6jzHw67FRsv/xP77R1jj4=";
+    };
+    extraBuildInputs = [
+      (lib.getLib stdenv.cc.cc) # for libstdc++.so.6 and libgomp.so.1
+    ];
+    jdk = jdk17;
+  };
+
+  pdfstudio2023 = callPackage ./common.nix rec {
+    inherit
+      desktopName
+      longDescription
+      pname
+      program
+      year
+      ;
+    version = "${year}.0.4";
+    src = fetchurl {
+      url = "https://download.qoppa.com/pdfstudio/v${year}/PDFStudio_v${dot2dash version}_linux64.deb";
+      hash = "sha256-TTh0yzpCOpxFKGfrakvnu1Y+l9NI0nfWlVuvSWpkRkE=";
+    };
+    extraBuildInputs = [
+      (lib.getLib stdenv.cc.cc) # for libstdc++.so.6 and libgomp.so.1
+    ];
+    jdk = jdk17;
+  };
+
+  pdfstudio2024 = callPackage ./common.nix rec {
+    inherit
+      desktopName
+      longDescription
+      pname
+      program
+      year
+      ;
+    version = "${year}.0.0";
+    src = fetchurl {
+      url = "https://download.qoppa.com/pdfstudio/v${year}/PDFStudio_v${dot2dash version}_linux64.deb";
+      hash = "sha256-9TMSKtBE0+T7wRnBgtUjRr/JUmCaYdyD/7y0ML37wCM=";
+    };
+    extraBuildInputs = [
+      (lib.getLib stdenv.cc.cc) # for libstdc++.so.6 and libgomp.so.1
+    ];
+    jdk = jdk17;
+  };
+
 }
+.${pname}

@@ -1,41 +1,57 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, pytest
-, pytest-cov
-, mock
-, pyyaml
-, six
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  hatchling,
+  pytestCheckHook,
+  mock,
+  pyyaml,
+
+  # for passthru.tests
+  asgi-csrf,
+  connexion,
+  fastapi,
+  gradio,
+  starlette,
 }:
 
 buildPythonPackage rec {
   pname = "python-multipart";
-  version = "0.0.5";
+  version = "0.0.20";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "f7bb5f611fc600d15fa47b3974c8aa16e93724513b49b5f95c81e6624c83fa43";
+  src = fetchFromGitHub {
+    owner = "Kludex";
+    repo = "python-multipart";
+    tag = version;
+    hash = "sha256-y8wLGRvc7xSmkSyK77Tl5V6mMneS+dtmqBLZOhvmRSY=";
   };
 
-  checkInputs = [
-    pytest
-    pytest-cov
+  build-system = [ hatchling ];
+
+  pythonImportsCheck = [ "python_multipart" ];
+
+  nativeCheckInputs = [
+    pytestCheckHook
     mock
     pyyaml
   ];
 
-  propagatedBuildInputs = [
-    six
-  ];
-
-  checkPhase = ''
-    pytest
-  '';
+  passthru.tests = {
+    inherit
+      asgi-csrf
+      connexion
+      fastapi
+      gradio
+      starlette
+      ;
+  };
 
   meta = with lib; {
-    description = "A streaming multipart parser for Python";
-    homepage = "https://github.com/andrew-d/python-multipart";
+    changelog = "https://github.com/Kludex/python-multipart/blob/${src.tag}/CHANGELOG.md";
+    description = "Streaming multipart parser for Python";
+    homepage = "https://github.com/Kludex/python-multipart";
     license = licenses.asl20;
-    maintainers = [ maintainers.costrouc ];
+    maintainers = with maintainers; [ ris ];
   };
 }

@@ -1,38 +1,84 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, isPy27
-, gdcm
-, nose
-, nibabel
-, numpy
-, pydicom
-, scipy
-, setuptools
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  setuptools,
+
+  # dependencies
+  gdcm,
+  nibabel,
+  numpy,
+  pydicom,
+  scipy,
+
+  # tests
+  pillow,
+  pylibjpeg,
+  pylibjpeg-libjpeg,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "dicom2nifti";
-  version = "2.3.0";
-  disabled = isPy27;
+  version = "2.5.1";
+  pyproject = true;
 
   # no tests in PyPI dist
   src = fetchFromGitHub {
     owner = "icometrix";
     repo = pname;
-    rev = version;
-    sha256 = "sha256-QSu9CGXFjDpI25Cy6QSbrwiQ2bwsVezCUxSovRLs6AI=";
+    tag = version;
+    hash = "sha256-lPaBKqYO8B138fCgeKH6vpwGQhN3JCOnDj5PgaYfRPA=";
   };
 
-  propagatedBuildInputs = [ nibabel numpy pydicom scipy setuptools ];
+  postPatch = ''
+    substituteInPlace tests/test_generic.py --replace-fail "from common" "from dicom2nifti.common"
+    substituteInPlace tests/test_ge.py --replace-fail "import convert_generic" "import dicom2nifti.convert_generic as convert_generic"
+  '';
 
-  checkInputs = [ nose gdcm ];
-  checkPhase = "nosetests tests";
+  build-system = [ setuptools ];
 
-  meta = with lib; {
+  dependencies = [
+    gdcm
+    nibabel
+    numpy
+    pydicom
+    scipy
+  ];
+
+  pythonImportsCheck = [ "dicom2nifti" ];
+
+  nativeCheckInputs = [
+    pillow
+    pylibjpeg
+    pylibjpeg-libjpeg
+    pytestCheckHook
+  ];
+
+  disabledTests = [
+    # OverflowError: Python integer -1024 out of bounds for uint16
+    "test_not_a_volume"
+    "test_resampling"
+    "test_validate_orthogonal_disabled"
+
+    # RuntimeError: Unable to decompress 'JPEG 2000 Image Compression (Lossless O...
+    "test_anatomical"
+    "test_compressed_j2k"
+    "test_main_function"
+    "test_rgb"
+
+    # Missing script 'dicom2nifti_scrip'
+    "test_gantry_option"
+    "test_gantry_resampling"
+  ];
+
+  meta = {
     homepage = "https://github.com/icometrix/dicom2nifti";
     description = "Library for converting dicom files to nifti";
-    license = licenses.mit;
-    maintainers = with maintainers; [ bcdarwin ];
+    mainProgram = "dicom2nifti";
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ bcdarwin ];
   };
 }

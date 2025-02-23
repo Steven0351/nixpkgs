@@ -1,24 +1,46 @@
-{ lib
-, buildPythonPackage
-, fetchFromGitHub
-, python
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  pythonOlder,
+  bitarray,
+  setuptools,
+  pytest-benchmark,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "bitstring";
-  version = "3.1.9";
+  version = "4.3.0";
+  pyproject = true;
+
+  disabled = pythonOlder "3.7";
 
   src = fetchFromGitHub {
     owner = "scott-griffiths";
     repo = pname;
-    rev = "bitstring-${version}";
-    sha256 = "0y2kcq58psvl038r6dhahhlhp1wjgr5zsms45wyz1naq6ri8x9qa";
+    tag = "bitstring-${version}";
+    hash = "sha256-0AaOVjroVb/maFBaB55ahwWyRHHnofja4pgSgjQMsT8=";
   };
 
-  checkPhase = ''
-    cd test
-    ${python.interpreter} -m unittest discover
-  '';
+  build-system = [ setuptools ];
+
+  dependencies = [ bitarray ];
+
+  nativeCheckInputs = [
+    pytest-benchmark
+    pytestCheckHook
+  ];
+
+  pytestFlagsArray = [
+    "--benchmark-disable"
+  ];
+
+  disabledTestPaths = [
+    "tests/test_bits.py"
+    "tests/test_fp8.py"
+    "tests/test_mxfp.py"
+  ];
 
   pythonImportsCheck = [ "bitstring" ];
 

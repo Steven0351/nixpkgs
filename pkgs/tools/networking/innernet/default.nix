@@ -1,53 +1,75 @@
-{ lib
-, stdenv
-, rustPlatform
-, fetchFromGitHub
-, llvmPackages
-, sqlite
-, installShellFiles
-, Security
-, libiconv
-, innernet
-, testVersion
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  fetchFromGitHub,
+  sqlite,
+  installShellFiles,
+  Security,
+  libiconv,
+  innernet,
+  testers,
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "innernet";
-  version = "1.5.2";
+  version = "1.6.1";
 
   src = fetchFromGitHub {
     owner = "tonarino";
     repo = "innernet";
-    rev = "v${version}";
-    sha256 = "141zjfl125m5lrimam1dbpk40dqfq4vnaz42sbiq1v1avyg684fq";
+    tag = "v${version}";
+    hash = "sha256-dFMAzLvPO5xAfJqUXdiLf13uh5H5ay+CI9aop7Fhprk=";
   };
-  cargoSha256 = "0559d0ayysvqs4k46fhgd4r8wa89abgx6rvhlh0gnlnga8vacpw5";
 
-  nativeBuildInputs = with llvmPackages; [
-    llvm
-    clang
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-gTFvxmnh+d1pNqG0sEHFpl0m9KKCQ78sai//iiJ0aGs=";
+
+  nativeBuildInputs = [
+    rustPlatform.bindgenHook
     installShellFiles
   ];
-  buildInputs = [ sqlite ] ++ lib.optionals stdenv.isDarwin [ Security libiconv ];
 
-  LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
+  buildInputs =
+    [
+      sqlite
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      Security
+      libiconv
+    ];
 
-  postInstall = ''
-    installManPage doc/innernet-server.8.gz
-    installManPage doc/innernet.8.gz
-    installShellCompletion doc/innernet.completions.{bash,fish,zsh}
-    installShellCompletion doc/innernet-server.completions.{bash,fish,zsh}
-  '';
+  postInstall =
+    ''
+      installManPage doc/innernet-server.8.gz
+      installManPage doc/innernet.8.gz
+      installShellCompletion doc/innernet.completions.{bash,fish,zsh}
+      installShellCompletion doc/innernet-server.completions.{bash,fish,zsh}
+    ''
+    + (lib.optionalString stdenv.hostPlatform.isLinux ''
+      find . -regex '.*\.\(target\|service\)' | xargs install -Dt $out/lib/systemd/system
+      find $out/lib/systemd/system -type f | xargs sed -i "s|/usr/bin/innernet|$out/bin/innernet|"
+    '');
 
   passthru.tests = {
-    serverVersion = testVersion { package = innernet; command = "innernet-server --version"; };
-    version = testVersion { package = innernet; command = "innernet --version"; };
+    serverVersion = testers.testVersion {
+      package = innernet;
+      command = "innernet-server --version";
+    };
+    version = testers.testVersion {
+      package = innernet;
+      command = "innernet --version";
+    };
   };
 
   meta = with lib; {
-    description = "A private network system that uses WireGuard under the hood";
+    description = "Private network system that uses WireGuard under the hood";
     homepage = "https://github.com/tonarino/innernet";
+    changelog = "https://github.com/tonarino/innernet/releases/tag/v${version}";
     license = licenses.mit;
-    maintainers = with maintainers; [ tomberek _0x4A6F ];
+    maintainers = with maintainers; [
+      tomberek
+      _0x4A6F
+    ];
   };
 }

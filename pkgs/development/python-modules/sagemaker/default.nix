@@ -1,57 +1,120 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, attrs
-, boto3
-, google-pasta
-, importlib-metadata
-, numpy
-, protobuf
-, protobuf3-to-dict
-, smdebug-rulesconfig
-, pandas
-, pathos
-, packaging
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+
+  # build-system
+  hatchling,
+
+  # dependencies
+  attrs,
+  boto3,
+  cloudpickle,
+  docker,
+  fastapi,
+  google-pasta,
+  importlib-metadata,
+  jsonschema,
+  numpy,
+  omegaconf,
+  packaging,
+  pandas,
+  pathos,
+  platformdirs,
+  protobuf,
+  psutil,
+  pyyaml,
+  requests,
+  sagemaker-core,
+  schema,
+  smdebug-rulesconfig,
+  tblib,
+  tqdm,
+  urllib3,
+  uvicorn,
+
+  # optional-dependencies
+  scipy,
+  accelerate,
 }:
 
 buildPythonPackage rec {
   pname = "sagemaker";
-  version = "2.69.0";
+  version = "2.239.1";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "8e9051a44a82be07e32d83cfc12d724fd1cb76f83ade34cd9e69c45a8d37c676";
+  src = fetchFromGitHub {
+    owner = "aws";
+    repo = "sagemaker-python-sdk";
+    tag = "v${version}";
+    hash = "sha256-cjKuxTocWzNintsD/7lKluOk1+1FADg6LM0+M59LEo0=";
   };
+
+  build-system = [
+    hatchling
+  ];
+
+  pythonRelaxDeps = [
+    "attrs"
+    "boto3"
+    "cloudpickle"
+    "importlib-metadata"
+    "numpy"
+    "omegaconf"
+    "protobuf"
+  ];
+
+  dependencies = [
+    attrs
+    boto3
+    cloudpickle
+    docker
+    fastapi
+    google-pasta
+    importlib-metadata
+    jsonschema
+    numpy
+    omegaconf
+    packaging
+    pandas
+    pathos
+    platformdirs
+    protobuf
+    psutil
+    pyyaml
+    requests
+    sagemaker-core
+    schema
+    smdebug-rulesconfig
+    tblib
+    tqdm
+    urllib3
+    uvicorn
+  ];
+
+  doCheck = false; # many test dependencies are not available in nixpkgs
 
   pythonImportsCheck = [
     "sagemaker"
     "sagemaker.lineage.visualizer"
   ];
 
-  propagatedBuildInputs = [
-    attrs
-    boto3
-    google-pasta
-    importlib-metadata
-    numpy
-    packaging
-    pathos
-    protobuf
-    protobuf3-to-dict
-    smdebug-rulesconfig
-    pandas
-  ];
+  optional-dependencies = {
+    local = [
+      urllib3
+      docker
+      pyyaml
+    ];
+    scipy = [ scipy ];
+    huggingface = [ accelerate ];
+    # feature-processor = [ pyspark sagemaker-feature-store-pyspark ]; # not available in nixpkgs
+  };
 
-  doCheck = false;
-
-  postFixup = ''
-    [ "$($out/bin/sagemaker-upgrade-v2 --help 2>&1 | grep -cim1 'pandas failed to import')" -eq "0" ]
-  '';
-
-  meta = with lib; {
+  meta = {
     description = "Library for training and deploying machine learning models on Amazon SageMaker";
     homepage = "https://github.com/aws/sagemaker-python-sdk/";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ nequissimus ];
+    changelog = "https://github.com/aws/sagemaker-python-sdk/blob/v${version}/CHANGELOG.md";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ nequissimus ];
   };
 }

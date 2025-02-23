@@ -1,15 +1,25 @@
-{ lib, buildPythonPackage, fetchPypi, future, lxml }:
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  future,
+  lxml,
+}:
 
 buildPythonPackage rec {
   pname = "pymavlink";
-  version = "2.4.19";
+  version = "2.4.42";
+  format = "setuptools";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "08ppwlsnrvzkpi4fn14d4d4grzx2bmsd0m9369q3f9hw48fgf645";
+    hash = "sha256-3+BECLV0JeJlOKa0vZd/dyObyM5hiGF0VnsaJD98PXY=";
   };
 
-  propagatedBuildInputs = [ future lxml ];
+  propagatedBuildInputs = [
+    future
+    lxml
+  ];
 
   # No tests included in PyPI tarball. We cannot use the GitHub tarball because
   # we would like to use the same commit of the mavlink messages repo as
@@ -22,7 +32,10 @@ buildPythonPackage rec {
   meta = with lib; {
     description = "Python MAVLink interface and utilities";
     homepage = "https://github.com/ArduPilot/pymavlink";
-    license = with licenses; [ lgpl3Plus mit ];
+    license = with licenses; [
+      lgpl3Plus
+      mit
+    ];
     maintainers = with maintainers; [ lopsided98 ];
   };
 }

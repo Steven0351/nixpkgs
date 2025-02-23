@@ -1,24 +1,25 @@
-{ lib
-, buildPythonPackage
-, cached-property
-, chevron
-, fetchPypi
-, frozendict
-, pystache
-, pythonOlder
-, pyyaml
+{
+  lib,
+  buildPythonPackage,
+  cached-property,
+  chevron,
+  fetchPypi,
+  frozendict,
+  pystache,
+  pythonOlder,
+  pyyaml,
 }:
 
 buildPythonPackage rec {
   pname = "genanki";
-  version = "0.12.0";
+  version = "0.13.1";
   format = "setuptools";
 
-  disabled = pythonOlder "3.6";
+  disabled = pythonOlder "3.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "f787ac440ff37a3ef3389030e992e3527f000f7a69498f797033ccfad07ebe62";
+    hash = "sha256-hNCQQjqIeVIEZb/peECD7ay4014rpRH6Whve8B2Pce0=";
   };
 
   propagatedBuildInputs = [
@@ -37,9 +38,7 @@ buildPythonPackage rec {
   # relies on upstream anki
   doCheck = false;
 
-  pythonImportsCheck = [
-    "genanki"
-  ];
+  pythonImportsCheck = [ "genanki" ];
 
   meta = with lib; {
     description = "Generate Anki decks programmatically";

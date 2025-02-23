@@ -1,44 +1,42 @@
-{ lib
-, fetchPypi
-, buildPythonPackage
-, cryptography
-, pyopenssl
-, setuptools
-, mock
-, pytestCheckHook
+{
+  lib,
+  buildPythonPackage,
+  cryptography,
+  fetchFromGitHub,
+  poetry-core,
+  pyopenssl,
+  pytestCheckHook,
 }:
 
 buildPythonPackage rec {
   pname = "josepy";
-  version = "1.11.0";
+  version = "1.15.0";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "40ef59f2f537ec01bafe698dad66281f6ccf4642f747411647db403ab8fa9a2d";
+  src = fetchFromGitHub {
+    owner = "certbot";
+    repo = "josepy";
+    tag = "v${version}";
+    hash = "sha256-fK4JHDP9eKZf2WO+CqRdEjGwJg/WNLvoxiVrb5xQxRc=";
   };
 
-  postPatch = ''
-    # remove coverage flags
-    sed -i '/addopts/d' pytest.ini
-    sed -i '/flake8-ignore/d' pytest.ini
-  '';
+  nativeBuildInputs = [ poetry-core ];
 
   propagatedBuildInputs = [
     pyopenssl
     cryptography
-    setuptools
   ];
 
-  checkInputs = [
-    mock
-    pytestCheckHook
-  ];
+  nativeCheckInputs = [ pytestCheckHook ];
+
+  pythonImportsCheck = [ "josepy" ];
 
   meta = with lib; {
+    changelog = "https://github.com/certbot/josepy/blob/v${version}/CHANGELOG.rst";
     description = "JOSE protocol implementation in Python";
-    homepage = "https://github.com/jezdez/josepy";
+    mainProgram = "jws";
+    homepage = "https://github.com/certbot/josepy";
     license = licenses.asl20;
-    maintainers = with maintainers; [  ];
+    maintainers = with maintainers; [ dotlambda ];
   };
 }
-

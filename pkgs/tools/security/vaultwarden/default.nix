@@ -1,45 +1,71 @@
-{ lib, stdenv, rustPlatform, fetchFromGitHub, fetchurl, nixosTests
-, pkg-config, openssl
-, libiconv, Security, CoreServices
-, dbBackend ? "sqlite", libmysqlclient, postgresql }:
+{
+  lib,
+  stdenv,
+  callPackage,
+  rustPlatform,
+  fetchFromGitHub,
+  nixosTests,
+  pkg-config,
+  openssl,
+  libiconv,
+  Security,
+  CoreServices,
+  SystemConfiguration,
+  dbBackend ? "sqlite",
+  libmysqlclient,
+  libpq,
+}:
+
+let
+  webvault = callPackage ./webvault.nix { };
+in
 
 rustPlatform.buildRustPackage rec {
   pname = "vaultwarden";
-  version = "1.23.1";
+  version = "1.33.2";
 
   src = fetchFromGitHub {
     owner = "dani-garcia";
-    repo = pname;
+    repo = "vaultwarden";
     rev = version;
-    sha256 = "sha256-UMeltpuGUPdB5j4NBxA6SuLUqzinrF8USCaJk9SjDJA=";
+    hash = "sha256-Lu3/qVTi5Eedcm+3XlHAAJ1nPHm9hW4HZncQKmzDdoo=";
   };
 
-  cargoSha256 = "sha256-8SjCWioOK/bk6G+0Yfl0ilgbLu83hn+AtuX9QWrnQEc=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-T/ehLSPJmEuQYhotK12iqXQSe5Ke8+dkr9PVDe4Kmis=";
 
-  postPatch = ''
-    # Upstream specifies 1.57; nixpkgs has 1.56 which also produces a working
-    # vaultwarden when using RUSTC_BOOTSTRAP=1
-    sed -ri 's/^rust-version = .*//g' Cargo.toml
-  '';
+  # used for "Server Installed" version in admin panel
+  env.VW_VERSION = version;
 
   nativeBuildInputs = [ pkg-config ];
-  buildInputs = with lib; [ openssl ]
-    ++ optionals stdenv.isDarwin [ libiconv Security CoreServices ]
-    ++ optional (dbBackend == "mysql") libmysqlclient
-    ++ optional (dbBackend == "postgresql") postgresql;
-
-  # vaultwarden depends on rocket v0.5.0-dev, which requires nightly features.
-  # This may be removed if https://github.com/dani-garcia/vaultwarden/issues/712 is fixed.
-  RUSTC_BOOTSTRAP = 1;
+  buildInputs =
+    [ openssl ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      libiconv
+      Security
+      CoreServices
+      SystemConfiguration
+    ]
+    ++ lib.optional (dbBackend == "mysql") libmysqlclient
+    ++ lib.optional (dbBackend == "postgresql") libpq;
 
   buildFeatures = dbBackend;
 
-  passthru.tests = nixosTests.vaultwarden;
+  passthru = {
+    inherit webvault;
+    tests = nixosTests.vaultwarden;
+    updateScript = callPackage ./update.nix { };
+  };
 
   meta = with lib; {
     description = "Unofficial Bitwarden compatible server written in Rust";
     homepage = "https://github.com/dani-garcia/vaultwarden";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ msteen ivan ];
+    changelog = "https://github.com/dani-garcia/vaultwarden/releases/tag/${version}";
+    license = licenses.agpl3Only;
+    maintainers = with maintainers; [
+      dotlambda
+      SuperSandro2000
+    ];
+    mainProgram = "vaultwarden";
   };
 }

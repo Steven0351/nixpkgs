@@ -1,27 +1,48 @@
-{ lib, buildPythonPackage, fetchFromGitHub, python, django, dj-database-url }:
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  django,
+  dj-database-url,
+  pytest-django,
+  pytestCheckHook,
+}:
 
 buildPythonPackage rec {
   pname = "django-polymorphic";
-  version = "2.1.2";
+  version = "4.0.0";
+  pyproject = true;
 
-  # PyPI tarball is missing some test files
   src = fetchFromGitHub {
-    owner = pname;
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "0zghrq7y7g2ls38cz6y98qj5xwnn992slhb95qyp6l66d420j179";
+    owner = "django-polymorphic";
+    repo = "django-polymorphic";
+    tag = "v${version}";
+    hash = "sha256-cEV9gnc9gLpAVmYkzSaQwDbgXsklMTq71edndDJeP9E=";
   };
 
-  checkInputs = [ dj-database-url ];
-  propagatedBuildInputs = [ django ];
+  patches = [
+    # https://github.com/jazzband/django-polymorphic/issues/616
+    ./django-5.1-compat.patch
+  ];
 
-  checkPhase = ''
-    ${python.interpreter} runtests.py
-  '';
+  build-system = [ setuptools ];
+
+  dependencies = [ django ];
+
+  nativeCheckInputs = [
+    dj-database-url
+    pytest-django
+    pytestCheckHook
+  ];
+
+  pythonImportsCheck = [ "polymorphic" ];
 
   meta = with lib; {
+    changelog = "https://github.com/jazzband/django-polymorphic/releases/tag/${src.tag}";
     homepage = "https://github.com/django-polymorphic/django-polymorphic";
     description = "Improved Django model inheritance with automatic downcasting";
     license = licenses.bsd3;
+    maintainers = [ ];
   };
 }

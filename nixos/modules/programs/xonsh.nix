@@ -2,12 +2,10 @@
 
 { config, lib, pkgs, ... }:
 
-with lib;
-
 let
 
   cfg = config.programs.xonsh;
-
+  package = cfg.package.override { inherit (cfg) extraPackages; };
 in
 
 {
@@ -16,38 +14,47 @@ in
 
     programs.xonsh = {
 
-      enable = mkOption {
+      enable = lib.mkOption {
         default = false;
         description = ''
           Whether to configure xonsh as an interactive shell.
         '';
-        type = types.bool;
+        type = lib.types.bool;
       };
 
-      package = mkOption {
-        type = types.package;
-        default = pkgs.xonsh;
-        defaultText = literalExpression "pkgs.xonsh";
-        example = literalExpression "pkgs.xonsh.override { configFile = \"/path/to/xonshrc\"; }";
-        description = ''
-          xonsh package to use.
-        '';
+      package = lib.mkPackageOption pkgs "xonsh" {
+        example = "pkgs.xonsh.override { extraPackages = ps: [ ps.requests ]; }";
       };
 
-      config = mkOption {
+      config = lib.mkOption {
         default = "";
         description = "Control file to customize your shell behavior.";
-        type = types.lines;
+        type = lib.types.lines;
       };
 
+      extraPackages = lib.mkOption {
+        default = (ps: [ ]);
+        type = with lib.types; coercedTo (listOf lib.types.package) (v: (_: v)) (functionTo (listOf lib.types.package));
+        description = ''
+          Add the specified extra packages to the xonsh package.
+          Preferred over using `programs.xonsh.package` as it composes with `programs.xonsh.xontribs`.
+
+          Take care in using this option along with manually defining the package
+          option above, as the two can result in conflicting sets of build dependencies.
+          This option assumes that the package option has an overridable argument
+          called `extraPackages`, so if you override the package option but also
+          intend to use this option, be sure that your resulting package still honors
+          the necessary option.
+        '';
+      };
     };
 
   };
 
-  config = mkIf cfg.enable {
+  config = lib.mkIf cfg.enable {
 
-    environment.etc.xonshrc.text = ''
-      # /etc/xonshrc: DO NOT EDIT -- this file has been generated automatically.
+    environment.etc."xonsh/xonshrc".text = ''
+      # /etc/xonsh/xonshrc: DO NOT EDIT -- this file has been generated automatically.
 
 
       if not ''${...}.get('__NIXOS_SET_ENVIRONMENT_DONE'):
@@ -69,18 +76,14 @@ in
               aliases['ls'] = _ls_alias
           del _ls_alias
 
-
       ${cfg.config}
     '';
 
-    environment.systemPackages = [ cfg.package ];
+    environment.systemPackages = [ package ];
 
-    environment.shells =
-      [ "/run/current-system/sw/bin/xonsh"
-        "${cfg.package}/bin/xonsh"
-      ];
-
+    environment.shells = [
+      "/run/current-system/sw/bin/xonsh"
+      "${lib.getExe package}"
+    ];
   };
-
 }
-

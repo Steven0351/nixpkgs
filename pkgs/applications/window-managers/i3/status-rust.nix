@@ -8,30 +8,40 @@
 , notmuch
 , openssl
 , ethtool
+, lm_sensors
+, iw
+, iproute2
+, pipewire
+, withICUCalendar ? false
+, withPipewire ? true
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "i3status-rust";
-  version = "0.20.7";
+  version = "0.33.2";
 
   src = fetchFromGitHub {
     owner = "greshake";
     repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-7RfDNjTUQtVZUeRGBnd2ygSkFJOoPrNF/Bwy8GWo7To=";
+    rev = "refs/tags/v${version}";
+    hash = "sha256-xJm4MsEU0OVX401WvKllg3zUwgCvjLxlAQzXE/oD1J0=";
   };
 
-  cargoSha256 = "sha256-alZJm2/hhloKQn7QeUA2IMgGl86Lz8xNpZkoMHCcjVI=";
+  useFetchCargoVendor = true;
+  cargoHash = "sha256-EFFmH9aG7DvSA5rsAuszc1B8kcLdruSk3Hhp4V9t9Gk=";
 
-  nativeBuildInputs = [ pkg-config makeWrapper ];
+  nativeBuildInputs = [ pkg-config makeWrapper ]
+    ++ (lib.optionals withPipewire [ rustPlatform.bindgenHook ]);
 
-  buildInputs = [ dbus libpulseaudio notmuch openssl ];
+  buildInputs = [ dbus libpulseaudio notmuch openssl lm_sensors ]
+    ++ (lib.optionals withPipewire [ pipewire ]);
 
   buildFeatures = [
     "notmuch"
     "maildir"
     "pulseaudio"
-  ];
+  ] ++ (lib.optionals withICUCalendar [ "icu_calendar" ])
+  ++ (lib.optionals withPipewire [ "pipewire" ]);
 
   prePatch = ''
     substituteInPlace src/util.rs \
@@ -44,7 +54,7 @@ rustPlatform.buildRustPackage rec {
   '';
 
   postFixup = ''
-    wrapProgram $out/bin/i3status-rs --prefix PATH : "${ethtool}/bin"
+    wrapProgram $out/bin/i3status-rs --prefix PATH : ${lib.makeBinPath [ iproute2 ethtool iw ]}
   '';
 
   # Currently no tests are implemented, so we avoid building the package twice
@@ -53,8 +63,9 @@ rustPlatform.buildRustPackage rec {
   meta = with lib; {
     description = "Very resource-friendly and feature-rich replacement for i3status";
     homepage = "https://github.com/greshake/i3status-rust";
-    license = licenses.gpl3;
-    maintainers = with maintainers; [ backuitist globin ma27 ];
+    license = licenses.gpl3Only;
+    mainProgram = "i3status-rs";
+    maintainers = with maintainers; [ backuitist globin ];
     platforms = platforms.linux;
   };
 }

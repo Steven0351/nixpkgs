@@ -1,42 +1,57 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, python
-, numpy
+{
+  lib,
+  buildPythonPackage,
+  fetchPypi,
+  numpy,
+  pytestCheckHook,
+  setuptools,
 }:
 
 buildPythonPackage rec {
   pname = "numexpr";
-  version = "2.8.0";
+  version = "2.10.2";
+  pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "9fec076b76c90a5f3929373f548834bb203c6d23a81a895e60d0fe9cca075e99";
+    hash = "sha256-sK/2tI68mdL1Tye19zpYy5L95lCu/xs5fHHIeItP/xo=";
   };
 
-  # Remove existing site.cfg, use the one we built for numpy.
+  build-system = [
+    setuptools
+    numpy
+  ];
+
+  dependencies = [ numpy ];
+
   preBuild = ''
+    # Remove existing site.cfg, use the one we built for numpy
     ln -s ${numpy.cfg} site.cfg
   '';
 
-  nativeBuildInputs = [
-    numpy
-  ];
+  nativeCheckInputs = [ pytestCheckHook ];
 
-  propagatedBuildInputs = [
-    numpy
-  ];
+  preCheck = ''
+    pushd $out
+  '';
 
-  checkPhase = ''
-    runtest="$(pwd)/numexpr/tests/test_numexpr.py"
-    pushd "$out"
-    ${python.interpreter} "$runtest"
+  postCheck = ''
     popd
   '';
 
-  meta = {
+  disabledTests = [
+    # fails on computers with more than 8 threads
+    # https://github.com/pydata/numexpr/issues/479
+    "test_numexpr_max_threads_empty_string"
+    "test_omp_num_threads_empty_string"
+  ];
+
+  pythonImportsCheck = [ "numexpr" ];
+
+  meta = with lib; {
     description = "Fast numerical array expression evaluator for NumPy";
     homepage = "https://github.com/pydata/numexpr";
-    license = lib.licenses.mit;
+    license = licenses.mit;
+    maintainers = [ ];
   };
 }

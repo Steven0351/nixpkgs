@@ -1,25 +1,31 @@
-{ lib
-, angr
-, buildPythonPackage
-, fetchFromGitHub
-, progressbar
-, pythonOlder
-, tqdm
+{
+  lib,
+  angr,
+  buildPythonPackage,
+  fetchFromGitHub,
+  progressbar,
+  pythonOlder,
+  setuptools,
+  tqdm,
 }:
 
 buildPythonPackage rec {
   pname = "angrop";
-  version = "9.1.10913";
+  version = "9.2.11";
+  pyproject = true;
+
   disabled = pythonOlder "3.6";
 
   src = fetchFromGitHub {
     owner = "angr";
-    repo = pname;
-    rev = "v${version}";
-    sha256 = "sha256-8M3d8lG7jDNgICjzjFRi9Wl2I7aYI5b5IvjEhixsk9k=";
+    repo = "angrop";
+    tag = "v${version}";
+    hash = "sha256-wL6H4UqBqOHMQU91q0uJrgeS/wVvIbinpF9IBtli3Ig=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [ setuptools ];
+
+  dependencies = [
     angr
     progressbar
     tqdm
@@ -28,6 +34,7 @@ buildPythonPackage rec {
   # Tests have additional requirements, e.g., angr binaries
   # cle is executing the tests with the angr binaries already and is a requirement of angr
   doCheck = false;
+
   pythonImportsCheck = [ "angrop" ];
 
   meta = with lib; {

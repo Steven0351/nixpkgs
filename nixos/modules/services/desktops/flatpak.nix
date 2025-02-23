@@ -1,38 +1,53 @@
 # flatpak service.
-{ config, lib, pkgs, ... }:
-
-with lib;
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   cfg = config.services.flatpak;
-in {
+in
+
+{
   meta = {
-    doc = ./flatpak.xml;
+    doc = ./flatpak.md;
     maintainers = pkgs.flatpak.meta.maintainers;
   };
 
   ###### interface
   options = {
     services.flatpak = {
-      enable = mkEnableOption "flatpak";
+      enable = lib.mkEnableOption "flatpak";
+
+      package = lib.mkPackageOption pkgs "flatpak" { };
     };
   };
 
-
   ###### implementation
-  config = mkIf cfg.enable {
+  config = lib.mkIf cfg.enable {
 
     assertions = [
-      { assertion = (config.xdg.portal.enable == true);
+      {
+        assertion = (config.xdg.portal.enable == true);
         message = "To use Flatpak you must enable XDG Desktop Portals with xdg.portal.enable.";
       }
     ];
 
-    environment.systemPackages = [ pkgs.flatpak ];
+    environment.systemPackages = [
+      cfg.package
+      pkgs.fuse3
+    ];
 
-    services.dbus.packages = [ pkgs.flatpak ];
+    security.polkit.enable = true;
 
-    systemd.packages = [ pkgs.flatpak ];
+    fonts.fontDir.enable = true;
+
+    services.dbus.packages = [ cfg.package ];
+
+    systemd.packages = [ cfg.package ];
+    systemd.tmpfiles.packages = [ cfg.package ];
 
     environment.profiles = [
       "$HOME/.local/share/flatpak/exports"

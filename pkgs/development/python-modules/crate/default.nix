@@ -1,49 +1,78 @@
-{ lib
-, fetchPypi
-, buildPythonPackage
-, urllib3
-, geojson
-, isPy3k
-, sqlalchemy
-, pytestCheckHook
-, stdenv
+{
+  lib,
+  fetchFromGitHub,
+  buildPythonPackage,
+  fetchpatch,
+  dask,
+  urllib3,
+  geojson,
+  verlib2,
+  pueblo,
+  pandas,
+  pythonOlder,
+  sqlalchemy,
+  pytestCheckHook,
+  pytz,
+  setuptools,
+  orjson,
 }:
 
 buildPythonPackage rec {
   pname = "crate";
-  version = "0.26.0";
-  disabled = !isPy3k;
+  version = "2.0.0";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "6f650c2efe250b89bf35f8fe3211eb37ebc8d76f7a9c09bd73db3076708fa2fc";
+  disabled = pythonOlder "3.7";
+
+  src = fetchFromGitHub {
+    owner = "crate";
+    repo = "crate-python";
+    tag = version;
+    hash = "sha256-K09jezBINTw4sUl1Xvm4lJa68ZpwMy9ju/pxdRwnaE4=";
   };
 
-  propagatedBuildInputs = [
+  build-system = [
+    setuptools
+  ];
+
+  dependencies = [
+    orjson
     urllib3
     sqlalchemy
     geojson
+    verlib2
+    pueblo
   ];
 
-  checkInputs = [
+  nativeCheckInputs = [
+    dask
+    pandas
     pytestCheckHook
+    pytz
   ];
 
   disabledTests = [
-    "RequestsCaBundleTest"
+    # the following tests require network access
+    "test_layer_from_uri"
+    "test_additional_settings"
+    "test_basic"
+    "test_cluster"
+    "test_default_settings"
+    "test_dynamic_http_port"
+    "test_environment_variables"
+    "test_verbosity"
   ];
-  disabledTestPaths = lib.optionals stdenv.isDarwin [ "src/crate/client/test_http.py" ];
+
+  disabledTestPaths = [
+    # imports setuptools.ssl_support, which doesn't exist anymore
+    "tests/client/test_http.py"
+  ];
 
   meta = with lib; {
     homepage = "https://github.com/crate/crate-python";
-    description = "A Python client library for CrateDB";
+    description = "Python client library for CrateDB";
+    changelog = "https://github.com/crate/crate-python/blob/${version}/CHANGES.txt";
     license = licenses.asl20;
     maintainers = with maintainers; [ doronbehar ];
-    # 2021-07-12 (@layus): Please unbreak when an update fixes compatibility
-    # with the version of SQLAlchemy in nixpkgs
-    # And also re-enable tests in pythonPackages.agate-sql.
-    # The version string below is intentionally split, so nixpkgs-update does
-    # not change it. That would make this warning pretty useless.
-    broken = assert version == "0.2"+"6.0"; true;
   };
 }

@@ -1,50 +1,69 @@
-{ lib
-, stdenv
-, fetchurl
-, makeWrapper
-, pkg-config
-, perl
-, withAlsa ? stdenv.hostPlatform.isLinux
-, alsa-lib
-, withPulse ? stdenv.hostPlatform.isLinux
-, libpulseaudio
-, withCoreAudio ? stdenv.hostPlatform.isDarwin
-, AudioUnit
-, AudioToolbox
-, withJack ? stdenv.hostPlatform.isUnix
-, jack
-, withConplay ? !stdenv.hostPlatform.isWindows
+{
+  lib,
+  stdenv,
+  fetchurl,
+  makeWrapper,
+  pkg-config,
+  libOnly ? false, # whether to build only the library
+  withAlsa ? stdenv.hostPlatform.isLinux,
+  alsa-lib,
+  withPulse ? stdenv.hostPlatform.isLinux,
+  libpulseaudio,
+  withCoreAudio ? stdenv.hostPlatform.isDarwin,
+  AudioUnit,
+  AudioToolbox,
+  withJack ? stdenv.hostPlatform.isUnix,
+  jack,
+  withConplay ? !stdenv.hostPlatform.isWindows,
+  perl,
+  writeScript,
 }:
 
+assert withConplay -> !libOnly;
+
 stdenv.mkDerivation rec {
-  pname = "mpg123";
-  version = "1.28.2";
+  pname = "${lib.optionalString libOnly "lib"}mpg123";
+  version = "1.32.10";
 
   src = fetchurl {
-    url = "mirror://sourceforge/${pname}/${pname}-${version}.tar.bz2";
-    sha256 = "006v44nz4nkpgvxz1k2vbbrfpa2m47hyydscs0wf3iysiyvd9vvy";
+    url = "mirror://sourceforge/mpg123/mpg123-${version}.tar.bz2";
+    hash = "sha256-h7LBf+DJedPvOO7O/2Nis1sorIWJ+/GFS1vnXJq2VXw=";
   };
 
-  outputs = [ "out" ] ++ lib.optionals withConplay [ "conplay" ];
+  outputs = [
+    "out"
+    "dev"
+    "man"
+  ] ++ lib.optional withConplay "conplay";
 
-  nativeBuildInputs = lib.optionals withConplay [ makeWrapper ]
-    ++ lib.optionals (withPulse || withJack) [ pkg-config ];
+  nativeBuildInputs = lib.optionals (!libOnly) (
+    lib.optionals withConplay [ makeWrapper ] ++ lib.optionals (withPulse || withJack) [ pkg-config ]
+  );
 
-  buildInputs = lib.optionals withConplay [ perl ]
+  buildInputs = lib.optionals (!libOnly) (
+    lib.optionals withConplay [ perl ]
     ++ lib.optionals withAlsa [ alsa-lib ]
     ++ lib.optionals withPulse [ libpulseaudio ]
-    ++ lib.optionals withCoreAudio [ AudioUnit AudioToolbox ]
-    ++ lib.optionals withJack [ jack ];
+    ++ lib.optionals withCoreAudio [
+      AudioUnit
+      AudioToolbox
+    ]
+    ++ lib.optionals withJack [ jack ]
+  );
 
-  configureFlags = [
-    "--with-audio=${lib.strings.concatStringsSep "," (
-      lib.optional withJack "jack"
-      ++ lib.optional withPulse "pulse"
-      ++ lib.optional withAlsa "alsa"
-      ++ lib.optional withCoreAudio "coreaudio"
-      ++ [ "dummy" ]
-    )}"
-  ] ++ lib.optional (stdenv.hostPlatform ? mpg123) "--with-cpu=${stdenv.hostPlatform.mpg123.cpu}";
+  configureFlags =
+    lib.optionals (!libOnly) [
+      "--with-audio=${
+        lib.strings.concatStringsSep "," (
+          lib.optional withJack "jack"
+          ++ lib.optional withPulse "pulse"
+          ++ lib.optional withAlsa "alsa"
+          ++ lib.optional withCoreAudio "coreaudio"
+          ++ [ "dummy" ]
+        )
+      }"
+    ]
+    ++ lib.optional (stdenv.hostPlatform ? mpg123) "--with-cpu=${stdenv.hostPlatform.mpg123.cpu}";
 
   enableParallelBuilding = true;
 
@@ -61,6 +80,20 @@ stdenv.mkDerivation rec {
     wrapProgram $conplay/bin/conplay \
       --prefix PATH : $out/bin
   '';
+
+  passthru = {
+    updateScript = writeScript "update-mpg123" ''
+      #!/usr/bin/env nix-shell
+      #!nix-shell -i bash -p curl pcre common-updater-scripts
+
+      set -eu -o pipefail
+
+      # Expect the text in format of '<a href="download/mpg123-1.32.6.tar.bz2">'
+      new_version="$(curl -s https://mpg123.org/download.shtml |
+          pcregrep -o1 '<a href="download/mpg123-([0-9.]+).tar.bz2">')"
+      update-source-version ${pname} "$new_version"
+    '';
+  };
 
   meta = with lib; {
     description = "Fast console MPEG Audio Player and decoder library";

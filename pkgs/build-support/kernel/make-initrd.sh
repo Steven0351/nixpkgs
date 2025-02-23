@@ -1,5 +1,3 @@
-source $stdenv/setup
-
 set -o pipefail
 
 objects=($objects)
@@ -31,7 +29,7 @@ storePaths=$(perl $pathsFromGraph closure-*)
 
 # Paths in cpio archives *must* be relative, otherwise the kernel
 # won't unpack 'em.
-(cd root && cp -prd --parents $storePaths .)
+(cd root && cp -prP --parents $storePaths .)
 
 
 # Put the closure in a gzipped cpio archive.
@@ -40,7 +38,7 @@ for PREP in $prepend; do
   cat $PREP >> $out/initrd
 done
 (cd root && find * .[^.*] -exec touch -h -d '@1' '{}' +)
-(cd root && find * .[^.*] -print0 | sort -z | cpio -o -H newc -R +0:+0 --reproducible --null | eval -- $compress >> "$out/initrd")
+(cd root && find * .[^.*] -print0 | sort -z | cpio --quiet -o -H newc -R +0:+0 --reproducible --null | eval -- $compress >> "$out/initrd")
 
 if [ -n "$makeUInitrd" ]; then
     mkimage -A "$uInitrdArch" -O linux -T ramdisk -C "$uInitrdCompression" -d "$out/initrd" $out/initrd.img

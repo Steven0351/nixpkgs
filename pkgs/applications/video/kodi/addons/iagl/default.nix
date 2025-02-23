@@ -1,15 +1,26 @@
-{ lib, buildKodiAddon, fetchFromGitHub, fetchzip, dateutil, requests, routing, vfs-libarchive, archive_tool, youtube }:
+{
+  lib,
+  buildKodiAddon,
+  fetchFromGitHub,
+  dateutil,
+  requests,
+  routing,
+  vfs-libarchive,
+  archive_tool,
+  youtube,
+  infotagger,
+}:
 
 buildKodiAddon rec {
   pname = "iagl";
   namespace = "plugin.program.iagl";
-  version = "1101521-2";
+  version = "3.0.9";
 
   src = fetchFromGitHub {
     owner = "zach-morris";
     repo = "plugin.program.iagl";
-    rev = "30e82eec1a909b31767f0e298cf77fc970b256d3";
-    sha256 = "11y05i5f7lzik23w2kr52jdgr8db3gin8i683sy1hzxlmplk4699";
+    rev = version;
+    sha256 = "sha256-b8nO3D/xTnj/5UDshGlIJdiHd75VhIlkrGUi0vkZqG4=";
   };
 
   propagatedBuildInputs = [
@@ -19,6 +30,7 @@ buildKodiAddon rec {
     vfs-libarchive
     archive_tool
     youtube
+    infotagger
   ];
 
   meta = with lib; {

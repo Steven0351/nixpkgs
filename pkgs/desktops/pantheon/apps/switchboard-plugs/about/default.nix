@@ -1,41 +1,44 @@
-{ lib
-, stdenv
-, fetchFromGitHub
-, nix-update-script
-, substituteAll
-, meson
-, ninja
-, pkg-config
-, vala
-, libgee
-, libgtop
-, libhandy
-, granite
-, gtk3
-, switchboard
-, fwupd
-, appstream
-, nixos-artwork
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  nix-update-script,
+  meson,
+  ninja,
+  pkg-config,
+  vala,
+  libadwaita,
+  libgee,
+  libgtop,
+  libgudev,
+  libsoup_3,
+  gettext,
+  glib,
+  granite7,
+  gtk4,
+  packagekit,
+  polkit,
+  switchboard,
+  udisks2,
+  fwupd,
+  appstream,
+  elementary-settings-daemon,
 }:
 
 stdenv.mkDerivation rec {
   pname = "switchboard-plug-about";
-  version = "6.0.1";
+  version = "8.2.0";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
     rev = version;
-    sha256 = "0c075ac7iqz4hqbp2ph0cwyhiq0jn6c1g1jjfhygjbssv3vvd268";
-  };
-
-  passthru = {
-    updateScript = nix-update-script {
-      attrPath = "pantheon.${pname}";
-    };
+    sha256 = "sha256-NMi+QyIunUIzg9IlzeUCz2eQrQlF28lufFc51XOQljU=";
   };
 
   nativeBuildInputs = [
+    gettext # msgfmt
+    glib # glib-compile-resources
     meson
     ninja
     pkg-config
@@ -44,22 +47,24 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
     appstream
+    elementary-settings-daemon # for gsettings schemas
     fwupd
-    granite
-    gtk3
+    granite7
+    gtk4
+    libadwaita
     libgee
     libgtop
-    libhandy
+    libgudev
+    libsoup_3
+    packagekit
+    polkit
     switchboard
+    udisks2
   ];
 
-  patches = [
-    # Use NixOS's default wallpaper
-    (substituteAll {
-      src = ./fix-background-path.patch;
-      default_wallpaper = "${nixos-artwork.wallpapers.simple-dark-gray.gnomeFilePath}";
-    })
-  ];
+  passthru = {
+    updateScript = nix-update-script { };
+  };
 
   meta = with lib; {
     description = "Switchboard About Plug";

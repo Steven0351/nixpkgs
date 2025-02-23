@@ -1,45 +1,89 @@
-{ lib, stdenv, buildPythonPackage, isPyPy, fetchPypi, pytestCheckHook,
-  libffi, pkg-config, pycparser
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  isPyPy,
+  fetchPypi,
+  setuptools,
+  pytestCheckHook,
+  libffi,
+  pkg-config,
+  pycparser,
 }:
 
-if isPyPy then null else buildPythonPackage rec {
-  pname = "cffi";
-  version = "1.15.0";
+let
+  version = "1.17.1";
+in
+if isPyPy then
+  buildPythonPackage {
+    pname = "cffi";
+    inherit version;
+    pyproject = false;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "920f0d66a896c2d99f0adbb391f990a84091179542c205fa53ce5787aff87954";
-  };
+    # cffi is bundled with PyPy.
+    dontUnpack = true;
 
-  outputs = [ "out" "dev" ];
+    # Some dependent packages expect to have pycparser available when using cffi.
+    dependencies = [ pycparser ];
 
-  buildInputs = [ libffi ];
+    meta = {
+      description = "Foreign Function Interface for Python calling C code (bundled with PyPy, placeholder package)";
+      homepage = "https://cffi.readthedocs.org/";
+      license = lib.licenses.mit;
+      maintainers = lib.teams.python.members;
+    };
+  }
+else
+  buildPythonPackage rec {
+    pname = "cffi";
+    inherit version;
+    pyproject = true;
 
-  nativeBuildInputs = [ pkg-config ];
+    src = fetchPypi {
+      inherit pname version;
+      hash = "sha256-HDnGAWwyvEjdVFYZUOvWg24WcPKuRhKPZ89J54nFKCQ=";
+    };
 
-  propagatedBuildInputs = [ pycparser ];
+    patches = [
+      #
+      # Trusts the libffi library inside of nixpkgs on Apple devices.
+      #
+      # Based on some analysis I did:
+      #
+      #   https://groups.google.com/g/python-cffi/c/xU0Usa8dvhk
+      #
+      # I believe that libffi already contains the code from Apple's fork that is
+      # deemed safe to trust in cffi.
+      #
+      ./darwin-use-libffi-closures.diff
+    ];
 
-  prePatch = lib.optionalString stdenv.isDarwin ''
-    # Remove setup.py impurities
-    substituteInPlace setup.py --replace "'-iwithsysroot/usr/include/ffi'" ""
-    substituteInPlace setup.py --replace "'/usr/include/ffi'," ""
-    substituteInPlace setup.py --replace '/usr/include/libffi' '${lib.getDev libffi}/include'
-  '';
+    nativeBuildInputs = [ pkg-config ];
 
-  # The tests use -Werror but with python3.6 clang detects some unreachable code.
-  NIX_CFLAGS_COMPILE = lib.optionalString stdenv.cc.isClang
-    "-Wno-unused-command-line-argument -Wno-unreachable-code -Wno-c++11-narrowing";
+    build-system = [ setuptools ];
 
-  # Lots of tests fail on aarch64-darwin due to "Cannot allocate write+execute memory":
-  # * https://cffi.readthedocs.io/en/latest/using.html#callbacks
-  doCheck = !stdenv.hostPlatform.isMusl && !(stdenv.isDarwin && stdenv.isAarch64);
+    buildInputs = [ libffi ];
 
-  checkInputs = [ pytestCheckHook ];
+    dependencies = [ pycparser ];
 
-  meta = with lib; {
-    maintainers = with maintainers; [ domenkozar lnl7 ];
-    homepage = "https://cffi.readthedocs.org/";
-    license = licenses.mit;
-    description = "Foreign Function Interface for Python calling C code";
-  };
-}
+    # The tests use -Werror but with python3.6 clang detects some unreachable code.
+    env.NIX_CFLAGS_COMPILE = lib.optionalString stdenv.cc.isClang "-Wno-unused-command-line-argument -Wno-unreachable-code -Wno-c++11-narrowing";
+
+    doCheck = !(stdenv.hostPlatform.isMusl || stdenv.hostPlatform.useLLVM or false);
+
+    nativeCheckInputs = [ pytestCheckHook ];
+
+    disabledTests = lib.optionals stdenv.hostPlatform.isFreeBSD [
+      # https://github.com/python-cffi/cffi/pull/144
+      "test_dlopen_handle"
+    ];
+
+    meta = with lib; {
+      changelog = "https://github.com/python-cffi/cffi/releases/tag/v${version}";
+      description = "Foreign Function Interface for Python calling C code";
+      downloadPage = "https://github.com/python-cffi/cffi";
+      homepage = "https://cffi.readthedocs.org/";
+      license = licenses.mit;
+      maintainers = teams.python.members;
+    };
+  }

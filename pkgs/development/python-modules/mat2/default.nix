@@ -1,55 +1,60 @@
-{ lib
-, buildPythonPackage
-, python
-, pythonOlder
-, fetchFromGitLab
-, substituteAll
-, bubblewrap
-, exiftool
-, ffmpeg
-, mime-types
-, wrapGAppsHook
-, gdk-pixbuf
-, gobject-introspection
-, librsvg
-, poppler_gi
-, mutagen
-, pygobject3
-, pycairo
-, dolphinIntegration ? false, plasma5Packages
+{
+  lib,
+  stdenv,
+  buildPythonPackage,
+  pytestCheckHook,
+  fetchFromGitLab,
+  replaceVars,
+  bubblewrap,
+  exiftool,
+  ffmpeg,
+  setuptools,
+  wrapGAppsHook3,
+  gdk-pixbuf,
+  gobject-introspection,
+  librsvg,
+  poppler_gi,
+  mutagen,
+  pygobject3,
+  pycairo,
+  dolphinIntegration ? false,
+  kdePackages,
 }:
 
 buildPythonPackage rec {
   pname = "mat2";
-  version = "0.12.2";
-
-  disabled = pythonOlder "3.5";
+  version = "0.13.5";
+  pyproject = true;
 
   src = fetchFromGitLab {
     domain = "0xacab.org";
     owner = "jvoisin";
     repo = "mat2";
-    rev = version;
-    sha256 = "sha256-KaHdBmTeBlCRaVkG3WsfDtFo45s/X69x7VGDYY7W5O8=";
+    tag = version;
+    hash = "sha256-ivFgH/88DBucZRaO/OMsLlwJCjv/VQXb6AiKWhZ8XH0=";
   };
 
-  patches = [
-    # hardcode paths to some binaries
-    (substituteAll ({
-      src = ./paths.patch;
-      bwrap = "${bubblewrap}/bin/bwrap";
-      exiftool = "${exiftool}/bin/exiftool";
-      ffmpeg = "${ffmpeg}/bin/ffmpeg";
-      # remove once faf0f8a8a4134edbeec0a73de7f938453444186d is in master
-      mimetypes = "${mime-types}/etc/mime.types";
-    } // lib.optionalAttrs dolphinIntegration {
-      kdialog = "${plasma5Packages.kdialog}/bin/kdialog";
-    }))
-    # the executable shouldn't be called .mat2-wrapped
-    ./executable-name.patch
-    # hardcode path to mat2 executable
-    ./tests.patch
-  ];
+  patches =
+    [
+      # hardcode paths to some binaries
+      (replaceVars ./paths.patch {
+        exiftool = lib.getExe exiftool;
+        ffmpeg = lib.getExe ffmpeg;
+        kdialog = if dolphinIntegration then lib.getExe kdePackages.kdialog else null;
+        # replaced in postPatch
+        mat2 = null;
+        mat2svg = null;
+      })
+      # the executable shouldn't be called .mat2-wrapped
+      ./executable-name.patch
+      # hardcode path to mat2 executable
+      ./tests.patch
+    ]
+    ++ lib.optionals (stdenv.hostPlatform.isLinux) [
+      (replaceVars ./bubblewrap-path.patch {
+        bwrap = lib.getExe bubblewrap;
+      })
+    ];
 
   postPatch = ''
     substituteInPlace dolphin/mat2.desktop \
@@ -57,42 +62,42 @@ buildPythonPackage rec {
       --replace "@mat2svg@" "$out/share/icons/hicolor/scalable/apps/mat2.svg"
   '';
 
+  build-system = [ setuptools ];
+
   nativeBuildInputs = [
-    wrapGAppsHook
+    gobject-introspection
+    wrapGAppsHook3
   ];
 
   buildInputs = [
     gdk-pixbuf
-    gobject-introspection
     librsvg
     poppler_gi
   ];
 
-  propagatedBuildInputs = [
+  dependencies = [
     mutagen
     pygobject3
     pycairo
   ];
 
-  postInstall = ''
-    install -Dm 444 data/mat2.svg -t "$out/share/icons/hicolor/scalable/apps"
-    install -Dm 444 doc/mat2.1 -t "$out/share/man/man1"
-    install -Dm 444 nautilus/mat2.py -t "$out/share/nautilus-python/extensions"
-    buildPythonPath "$out $pythonPath"
-    patchPythonScript "$out/share/nautilus-python/extensions/mat2.py"
-  '' + lib.optionalString dolphinIntegration ''
-    install -Dm 444 dolphin/mat2.desktop -t "$out/share/kservices5/ServiceMenus"
-  '';
+  postInstall =
+    ''
+      install -Dm 444 data/mat2.svg -t "$out/share/icons/hicolor/scalable/apps"
+      install -Dm 444 doc/mat2.1 -t "$out/share/man/man1"
+    ''
+    + lib.optionalString dolphinIntegration ''
+      install -Dm 444 dolphin/mat2.desktop -t "$out/share/kservices5/ServiceMenus"
+    '';
 
-  checkPhase = ''
-    ${python.interpreter} -m unittest discover -v
-  '';
+  nativeCheckInputs = [ pytestCheckHook ];
 
   meta = with lib; {
-    description = "A handy tool to trash your metadata";
+    description = "Handy tool to trash your metadata";
     homepage = "https://0xacab.org/jvoisin/mat2";
     changelog = "https://0xacab.org/jvoisin/mat2/-/blob/${version}/CHANGELOG.md";
     license = licenses.lgpl3Plus;
+    mainProgram = "mat2";
     maintainers = with maintainers; [ dotlambda ];
   };
 }

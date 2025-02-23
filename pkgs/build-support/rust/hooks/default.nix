@@ -1,95 +1,153 @@
-{ buildPackages
-, callPackage
-, cargo
-, diffutils
-, lib
-, makeSetupHook
-, maturin
-, rust
-, rustc
-, stdenv
-, target ? rust.toRustTargetSpec stdenv.hostPlatform
+{
+  buildPackages,
+  callPackage,
+  cargo,
+  cargo-nextest,
+  clang,
+  diffutils,
+  lib,
+  makeSetupHook,
+  maturin,
+  rust,
+  rustc,
+  stdenv,
+  pkgsTargetTarget,
+
+  # This confusingly-named parameter indicates the *subdirectory of
+  # `target/` from which to copy the build artifacts.  It is derived
+  # from a stdenv platform (or a JSON file).
+  target ? stdenv.targetPlatform.rust.cargoShortTarget,
+  tests,
+  pkgsCross,
 }:
-
-let
-  targetIsJSON = lib.hasSuffix ".json" target;
-
-  # see https://github.com/rust-lang/cargo/blob/964a16a28e234a3d397b2a7031d4ab4a428b1391/src/cargo/core/compiler/compile_kind.rs#L151-L168
-  # the "${}" is needed to transform the path into a /nix/store path before baseNameOf
-  shortTarget = if targetIsJSON then
-      (lib.removeSuffix ".json" (builtins.baseNameOf "${target}"))
-    else target;
-  ccForBuild = "${buildPackages.stdenv.cc}/bin/${buildPackages.stdenv.cc.targetPrefix}cc";
-  cxxForBuild = "${buildPackages.stdenv.cc}/bin/${buildPackages.stdenv.cc.targetPrefix}c++";
-  ccForHost = "${stdenv.cc}/bin/${stdenv.cc.targetPrefix}cc";
-  cxxForHost = "${stdenv.cc}/bin/${stdenv.cc.targetPrefix}c++";
-  rustBuildPlatform = rust.toRustTarget stdenv.buildPlatform;
-  rustTargetPlatform = rust.toRustTarget stdenv.hostPlatform;
-  rustTargetPlatformSpec = rust.toRustTargetSpec stdenv.hostPlatform;
-in {
-  cargoBuildHook = callPackage ({ }:
+{
+  cargoBuildHook = callPackage (
+    { }:
     makeSetupHook {
       name = "cargo-build-hook.sh";
-      deps = [ cargo ];
       substitutions = {
-        inherit ccForBuild ccForHost cxxForBuild cxxForHost
-          rustBuildPlatform rustTargetPlatform rustTargetPlatformSpec;
+        inherit (stdenv.targetPlatform.rust) rustcTarget;
       };
-    } ./cargo-build-hook.sh) {};
+      passthru.tests =
+        {
+          test = tests.rust-hooks.cargoBuildHook;
+        }
+        // lib.optionalAttrs (stdenv.isLinux) {
+          testCross = pkgsCross.riscv64.tests.rust-hooks.cargoBuildHook;
+        };
+    } ./cargo-build-hook.sh
+  ) { };
 
-  cargoCheckHook = callPackage ({ }:
+  cargoCheckHook = callPackage (
+    { }:
     makeSetupHook {
       name = "cargo-check-hook.sh";
-      deps = [ cargo ];
       substitutions = {
-        inherit rustTargetPlatformSpec;
+        inherit (stdenv.targetPlatform.rust) rustcTarget;
       };
-    } ./cargo-check-hook.sh) {};
+      passthru.tests =
+        {
+          test = tests.rust-hooks.cargoCheckHook;
+        }
+        // lib.optionalAttrs (stdenv.isLinux) {
+          testCross = pkgsCross.riscv64.tests.rust-hooks.cargoCheckHook;
+        };
+    } ./cargo-check-hook.sh
+  ) { };
 
-  cargoInstallHook = callPackage ({ }:
+  cargoInstallHook = callPackage (
+    { }:
     makeSetupHook {
       name = "cargo-install-hook.sh";
-      deps = [ ];
       substitutions = {
-        inherit shortTarget;
+        targetSubdirectory = target;
       };
-    } ./cargo-install-hook.sh) {};
+      passthru.tests =
+        {
+          test = tests.rust-hooks.cargoInstallHook;
+        }
+        // lib.optionalAttrs (stdenv.isLinux) {
+          testCross = pkgsCross.riscv64.tests.rust-hooks.cargoInstallHook;
+        };
+    } ./cargo-install-hook.sh
+  ) { };
 
-  cargoSetupHook = callPackage ({ }:
+  cargoNextestHook = callPackage (
+    { }:
+    makeSetupHook {
+      name = "cargo-nextest-hook.sh";
+      propagatedBuildInputs = [ cargo-nextest ];
+      substitutions = {
+        inherit (stdenv.targetPlatform.rust) rustcTarget;
+      };
+      passthru.tests =
+        {
+          test = tests.rust-hooks.cargoNextestHook;
+        }
+        // lib.optionalAttrs (stdenv.isLinux) {
+          testCross = pkgsCross.riscv64.tests.rust-hooks.cargoNextestHook;
+        };
+    } ./cargo-nextest-hook.sh
+  ) { };
+
+  cargoSetupHook = callPackage (
+    { }:
     makeSetupHook {
       name = "cargo-setup-hook.sh";
-      deps = [ ];
+      propagatedBuildInputs = [ ];
       substitutions = {
         defaultConfig = ../fetchcargo-default-config.toml;
 
         # Specify the stdenv's `diff` by abspath to ensure that the user's build
         # inputs do not cause us to find the wrong `diff`.
-        # The `.nativeDrv` stanza works like nativeBuildInputs and ensures cross-compiling has the right version available.
-        diff = "${diffutils.nativeDrv or diffutils}/bin/diff";
+        diff = "${lib.getBin diffutils}/bin/diff";
 
-        # Target platform
-        rustTarget = ''
-          [target."${rust.toRustTarget stdenv.buildPlatform}"]
-          "linker" = "${ccForBuild}"
-          ${lib.optionalString (stdenv.buildPlatform.config != stdenv.hostPlatform.config) ''
-            [target."${shortTarget}"]
-            "linker" = "${ccForHost}"
-            ${# https://github.com/rust-lang/rust/issues/46651#issuecomment-433611633
-            lib.optionalString (stdenv.hostPlatform.isMusl && stdenv.hostPlatform.isAarch64) ''
-              "rustflags" = [ "-C", "target-feature=+crt-static", "-C", "link-arg=-lgcc" ]
-            ''}
-          ''}
-        '';
+        cargoConfig =
+          lib.optionalString (stdenv.hostPlatform.config != stdenv.targetPlatform.config) ''
+            [target."${stdenv.targetPlatform.rust.rustcTarget}"]
+            "linker" = "${pkgsTargetTarget.stdenv.cc}/bin/${pkgsTargetTarget.stdenv.cc.targetPrefix}cc"
+          ''
+          + ''
+            [target."${stdenv.hostPlatform.rust.rustcTarget}"]
+            "linker" = "${stdenv.cc}/bin/${stdenv.cc.targetPrefix}cc"
+            "rustflags" = [ "-C", "target-feature=${
+              if pkgsTargetTarget.stdenv.targetPlatform.isStatic then "+" else "-"
+            }crt-static" ]
+          '';
       };
-    } ./cargo-setup-hook.sh) {};
+      passthru.tests =
+        {
+          test = tests.rust-hooks.cargoSetupHook;
+        }
+        // lib.optionalAttrs (stdenv.isLinux) {
+          testCross = pkgsCross.riscv64.tests.rust-hooks.cargoSetupHook;
+        };
+    } ./cargo-setup-hook.sh
+  ) { };
 
-  maturinBuildHook = callPackage ({ }:
+  maturinBuildHook = callPackage (
+    { pkgsHostTarget }:
     makeSetupHook {
       name = "maturin-build-hook.sh";
-      deps = [ cargo maturin rustc ];
+      propagatedBuildInputs = [
+        pkgsHostTarget.maturin
+        pkgsHostTarget.cargo
+        pkgsHostTarget.rustc
+      ];
       substitutions = {
-        inherit ccForBuild ccForHost cxxForBuild cxxForHost
-          rustBuildPlatform rustTargetPlatform rustTargetPlatformSpec;
+        inherit (stdenv.targetPlatform.rust) rustcTarget;
       };
-    } ./maturin-build-hook.sh) {};
+    } ./maturin-build-hook.sh
+  ) { };
+
+  bindgenHook = callPackage (
+    { }:
+    makeSetupHook {
+      name = "rust-bindgen-hook";
+      substitutions = {
+        libclang = (lib.getLib clang.cc);
+        inherit clang;
+      };
+    } ./rust-bindgen-hook.sh
+  ) { };
 }

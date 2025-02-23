@@ -1,17 +1,29 @@
-{ lib, buildGoModule, fetchFromGitHub }:
+{
+  lib,
+  buildGoModule,
+  fetchFromGitHub,
+}:
 
 buildGoModule rec {
   pname = "cni-plugin-flannel";
-  version = "1.0.0";
+  version = "1.6.2-flannel1";
 
   src = fetchFromGitHub {
     owner = "flannel-io";
     repo = "cni-plugin";
     rev = "v${version}";
-    sha256 = "sha256-zWxw4LZIlkT88yGTnxdupq7cUSacNRxPzzp01O9USDw=";
+    sha256 = "sha256-mhDUpQf1HQLx4vn+Ju5jN5DYgkdsAs8CcmZbBqEITB4=";
   };
 
-  vendorSha256 = "sha256-zteMlrvRTVxOFlBy+z/qfiSii8+c8PMapwIsdbN+Aig=";
+  vendorHash = "sha256-0LgdvXNejEAgJZ9ufN3HJ+hXjUtrL0iqaQg9SpeCThM=";
+
+  ldflags = [
+    "-s"
+    "-w"
+    "-X main.Version=${version}"
+    "-X main.Commit=${version}"
+    "-X main.Program=flannel"
+  ];
 
   postInstall = ''
     mv $out/bin/cni-plugin $out/bin/flannel
@@ -22,12 +34,13 @@ buildGoModule rec {
 
   installCheckPhase = ''
     runHook preInstallCheck
-    $out/bin/flannel 2>&1 | fgrep -q v$version
+    $out/bin/flannel 2>&1 | fgrep -q $version
     runHook postInstallCheck
   '';
 
   meta = with lib; {
     description = "flannel CNI plugin";
+    mainProgram = "flannel";
     homepage = "https://github.com/flannel-io/cni-plugin/";
     license = licenses.asl20;
     platforms = platforms.linux;

@@ -1,23 +1,36 @@
-{ lib
-, buildPythonPackage
-, fetchPypi
-, unittest2
+{
+  lib,
+  buildPythonPackage,
+  fetchFromGitHub,
+  setuptools,
+  pythonOlder,
+  unittestCheckHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage {
   pname = "contextlib2";
-  version = "21.6.0";
+  version = "21.6.0-unstable-2024-05-23";
+  pyproject = true;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "ab1e2bfe1d01d968e1b7e8d9023bc51ef3509bba217bb730cee3827e1ee82869";
+  disabled = pythonOlder "3.6";
+
+  src = fetchFromGitHub {
+    owner = "jazzband";
+    repo = "contextlib2";
+    rev = "f64cf04df8a1f6a32ce2095192b4638d229ff25e";
+    hash = "sha256-HX9N8G8jl6cpEwdJ80pDcoo4osTO/f8fz5sNcY/R1Nk=";
   };
 
-  checkInputs = [ unittest2 ];
+  build-system = [ setuptools ];
+
+  nativeCheckInputs = [ unittestCheckHook ];
+
+  pythonImportsCheck = [ "contextlib2" ];
 
   meta = {
     description = "Backports and enhancements for the contextlib module";
     homepage = "https://contextlib2.readthedocs.org/";
     license = lib.licenses.psfl;
+    maintainers = with lib.maintainers; [ sigmanificient ];
   };
 }
